@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Formulario para notificar venta de una entrada en ElectroMusicCR.">
+  <title>ElectroMusicCR | Notificar venta</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-bar">
+      <a class="brand" href="../index.html#inicio" aria-label="Volver al inicio">
+        <img class="brand-logo" src="../assets/EMCR.png" alt="EMCR">
+        <span class="brand-text">
+          <strong>ElectroMusicCR</strong>
+          <small>Formulario de venta</small>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Navegacion interna">
+        <a href="../index.html#ventas">Ventas</a>
+        <a href="../index.html#noticias">Noticias</a>
+        <a href="../index.html">Volver al inicio</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section hero">
+      <div class="container hero-grid">
+        <article class="hero-copy">
+          <p class="eyebrow">Formulario</p>
+          <h1>Notificar venta de una entrada</h1>
+          <p class="lead">Completa los datos y luego conecta este formulario con tu canal preferido, si más adelante agregas envío real.</p>
+          <form class="simple-form">
+            <label>
+              Título del evento
+              <input type="text" name="titulo-evento" placeholder="Ej. Noche Electrónica Vol. 4">
+            </label>
+            <label>
+              Precio de la entrada
+              <input type="text" name="precio-entrada" placeholder="Ej. ¢8.000">
+            </label>
+            <label>
+              Localidad
+              <input type="text" name="localidad" placeholder="Ej. San José, Costa Rica">
+            </label>
+            <label>
+              Fecha
+              <input type="text" name="fecha" placeholder="Ej. 15 de agosto de 2026">
+            </label>
+            <label>
+              Contacto para consultar
+              <input type="text" name="contacto" placeholder="Ej. @instagram o WhatsApp">
+            </label>
+            <label>
+              Detalles adicionales
+              <textarea name="detalle" rows="5" placeholder="Escribe aquí datos extra sobre la venta de la entrada."></textarea>
+            </label>
+            <div class="form-actions">
+              <a class="button button--primary" href="../index.html#ventas">Volver a ventas</a>
+              <a class="button button--ghost" href="../index.html">Volver al inicio</a>
+            </div>
+          </form>
+        </article>
+
+        <aside class="hero-panel">
+          <div class="panel-card">
+            <span class="panel-label">Nota</span>
+            <strong>Sin base de datos</strong>
+            <p>Este formulario queda como plantilla visual para luego conectarlo a un servicio o enviar por contacto manual.</p>
+          </div>
+          <div class="panel-card panel-card--soft">
+            <span class="panel-label">Edición</span>
+            <strong>Fácil de modificar</strong>
+            <p>Puedes cambiar títulos, enlaces y campos directamente en este archivo HTML.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Plantilla de formulario para notificar venta de entrada.</p>
+      <a href="../index.html">Volver al inicio</a>
+    </div>
+  </footer>
+</body>
+</html>

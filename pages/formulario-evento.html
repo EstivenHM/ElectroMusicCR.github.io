@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Formulario para informar de un evento en ElectroMusicCR.">
+  <title>ElectroMusicCR | Informar evento</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-bar">
+      <a class="brand" href="../index.html#inicio" aria-label="Volver al inicio">
+        <img class="brand-logo" src="../assets/EMCR.png" alt="EMCR">
+        <span class="brand-text">
+          <strong>ElectroMusicCR</strong>
+          <small>Formulario de evento</small>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Navegacion interna">
+        <a href="../index.html#eventos">Eventos</a>
+        <a href="../index.html#noticias">Noticias</a>
+        <a href="../index.html">Volver al inicio</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section hero">
+      <div class="container hero-grid">
+        <article class="hero-copy">
+          <p class="eyebrow">Formulario</p>
+          <h1>Informar de un evento</h1>
+          <p class="lead">Usa esta página como plantilla para registrar eventos manualmente o compartir la información con el grupo.</p>
+          <form class="simple-form">
+            <label>
+              Título del evento
+              <input type="text" name="titulo-evento" placeholder="Ej. Sunset Electro Session">
+            </label>
+            <label>
+              Fecha
+              <input type="text" name="fecha" placeholder="Ej. 21 de septiembre de 2026">
+            </label>
+            <label>
+              Localidad
+              <input type="text" name="localidad" placeholder="Ej. Heredia, Costa Rica">
+            </label>
+            <label>
+              Descripción breve
+              <textarea name="descripcion" rows="5" placeholder="Describe el evento, el ambiente y los datos clave."></textarea>
+            </label>
+            <div class="form-actions">
+              <a class="button button--primary" href="../index.html#eventos">Volver a eventos</a>
+              <a class="button button--ghost" href="../index.html">Volver al inicio</a>
+            </div>
+          </form>
+        </article>
+
+        <aside class="hero-panel">
+          <div class="panel-card">
+            <span class="panel-label">Uso</span>
+            <strong>Plantilla manual</strong>
+            <p>Sin base de datos: el contenido se actualiza editando el HTML cuando agregues un nuevo evento.</p>
+          </div>
+          <div class="panel-card panel-card--soft">
+            <span class="panel-label">Atajo</span>
+            <strong>Listo para compartir</strong>
+            <p>También puedes usar este layout para informar actividades, sets o reuniones del grupo.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Plantilla de formulario para informar eventos.</p>
+      <a href="../index.html">Volver al inicio</a>
+    </div>
+  </footer>
+</body>
+</html>
