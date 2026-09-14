@@ -1,0 +1,29 @@
+# Configurar archivo de inicio predeterminado
+DirectoryIndex index.php default.php
+
+# Forzar HTTPS en producción
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Deshabilitar listado de directorios
+Options -Indexes
+
+# Proteger directorios del sistema y almacenamiento sensible
+RedirectMatch 404 /\.git
+RedirectMatch 404 /vendor/
+RedirectMatch 404 /storage/
+RedirectMatch 404 /config/
+RedirectMatch 404 /app/
+
+# Proteger archivos sensibles y de configuración
+<FilesMatch "^\.env|\.git|composer\.(json|lock)|package\.json|\.htaccess|\.htpasswd">
+    Require all denied
+</FilesMatch>
+
+# Prevenir acceso a archivos de backup y temporales
+<FilesMatch "(\.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist)|~)$">
+    Require all denied
+</FilesMatch>

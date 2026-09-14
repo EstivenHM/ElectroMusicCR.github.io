@@ -1,0 +1,10 @@
+# .copilotignore
+node_modules/
+vendor/
+.git/
+dist/
+*.log
+# Si tienes carpetas con assets o imágenes que la IA no necesita procesar:
+assets/img/
+.env
+env
