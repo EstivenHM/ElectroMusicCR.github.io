@@ -6,6 +6,12 @@ DirectoryIndex index.php default.php
     RewriteEngine On
     RewriteCond %{HTTPS} off
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Enrutamiento de las paginas y endpoints de la aplicacion.
+    RewriteRule ^admin(?:/.*)?/?$ public/index.php [L,QSA]
+    RewriteRule ^api/admin(?:/.*)?/?$ public/index.php [L,QSA]
+    RewriteRule ^(trivia|ranking)/?$ public/index.php [L,QSA]
+    RewriteRule ^api/(ranking|csrf|trivia/(current|player|submissions))/?$ public/index.php [L,QSA]
 </IfModule>
 
 # Deshabilitar listado de directorios

@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(trivia|ranking)/?$ index.php [L,QSA]
+    RewriteRule ^api/(ranking|csrf|trivia/(current|player|submissions))/?$ index.php [L,QSA]
+</IfModule>
+
+Options -Indexes

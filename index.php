@@ -1,3 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+if (str_starts_with(rtrim($requestPath, '/'), '/admin') || str_starts_with(rtrim($requestPath, '/'), '/api/')) {
+    require __DIR__ . '/public/index.php';
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
     <head>
@@ -6,29 +16,32 @@
         <meta name="description"
             content="ElectroMusicCR: comunidad y grupo dedicado a la musica electronica en Costa Rica.">
         <title>ElectroMusicCR | Comunidad de musica electronica</title>
-        <link rel="stylesheet" href="styles/main.css">
+        <link rel="stylesheet" href="/public/css/main.css">
     </head>
     <body>
         <header class="site-header">
             <div class="container header-bar">
                 <a class="brand" href="#inicio" aria-label="Ir al inicio">
-                    <img class="brand-logo" src="assets/EMCR.png" alt="EMCR">
+                    <img class="brand-logo" src="/assets/EMCR.png" alt="EMCR">
                     <span class="brand-text">
                         <strong>ElectroMusicCR</strong>
                         <small>Musica electronica en Costa Rica</small>
                     </span>
                 </a>
+                <!-- Navigation  seccion cambiara a menu de hambuerguesa ya que tendra mas opciones-->
                 <nav class="site-nav" aria-label="Navegacion principal">
                     <a href="#inicio">Inicio</a>
                     <a href="#sobre">Sobre nosotros</a>
                     <a href="#agenda">Eventos por la comunidad</a>
                     <a href="#contacto">Contacto</a>
+                    <a class="nav-link--accent" href="/trivia">Trivia</a>
+                    <a href="/ranking">Ranking</a>
                 </nav>
             </div>
         </header>
 
         <main id="inicio">
-
+<!-- Seccion de novedades agregadas desde el menu administrador -->
             <section id="noticias" class="section section--alt">
                 <div class="container section-heading section-heading--split">
                     <div>
@@ -39,7 +52,7 @@
                 </div>
                 <div class="container card-grid card-grid--two">
                     <article class="news-card">
-                        <img src="assets/TML2026.jpeg"
+                        <img src="/assets/TML2026.jpeg"
                             alt="Tomorrowland 2026">
                         <div class="news-card__body">
                             <p class="card-kicker">Festival</p>
@@ -64,7 +77,7 @@
                         </div>
                     </article>
                     <article class="news-card">
-                        <img src="assets/MTG26.jpeg"
+                        <img src="/assets/MTG26.jpeg"
                             alt="Martin Garrix en Costa Rica">
                         <div class="news-card__body">
                             <p class="card-kicker">Concierto</p>
@@ -87,6 +100,7 @@
             </section>
             <section id="agenda" class="section">
                 <div class="container split-layout">
+                    <!-- Los eventos seran ahora agregados por colaboradores desde admin panel -->
                     <div>
                         <p class="eyebrow">Eventos Agregados por la
                             comunidad</p>
@@ -130,6 +144,7 @@
                 </div>
             </section>
 
+            <!-- esta seccion se modificara por una nueva seccion informativa -->
             <section id="ventas" class="section">
                 <div class="container section-heading section-heading--split">
                     <div>
@@ -152,7 +167,7 @@
                     </div>
                 </div>
             </section>
-
+<!-- esta seccion se mantiene hasta abajo -->
             <section id="contacto" class="section section--alt">
                 <div class="container contact-card">
                     <div>

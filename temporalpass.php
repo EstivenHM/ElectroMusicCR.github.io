@@ -1,0 +1,1 @@
+<?php echo password_hash('MiPassword123', PASSWORD_DEFAULT); ?>
