@@ -83,7 +83,7 @@
     function questionTemplate(question = {}) {
         const options = [...(question.options || []), {}, {}, {}, {}].slice(0, 4);
         const optionGroup = `correct_${question.id || Math.random().toString(36).slice(2)}`;
-        return `<fieldset class="trivia-question"><legend>Pregunta</legend><label>Texto<input name="question_text" value="${escapeHtml(question.text)}" required></label><label>Puntos<input name="question_points" type="number" min="1" value="${question.points || 1}" required></label><div class="trivia-options">${options.map((option) => `<label>Opción<input name="option_text" value="${escapeHtml(option.text)}" required><span><input name="${optionGroup}" data-option-correct type="radio"> Correcta</span></label>`).join('')}</div><button type="button" class="button button--ghost" data-remove-question>Eliminar pregunta</button></fieldset>`;
+        return `<fieldset class="trivia-question"><legend>Pregunta</legend><label>Texto<input name="question_text" value="${escapeHtml(question.text)}" required></label><label>Razón de la respuesta<textarea name="question_explanation" rows="3" maxlength="2000" placeholder="Explica brevemente por qué esta es la respuesta correcta">${escapeHtml(question.explanation)}</textarea></label><label>Puntos<input name="question_points" type="number" min="1" value="${question.points || 1}" required></label><div class="trivia-options">${options.map((option) => `<label>Opción<input name="option_text" value="${escapeHtml(option.text)}" required><span><input name="${optionGroup}" data-option-correct type="radio"> Correcta</span></label>`).join('')}</div><button type="button" class="button button--ghost" data-remove-question>Eliminar pregunta</button></fieldset>`;
     }
 
     function renderTrivia() {
@@ -108,7 +108,7 @@
         return {
             id: Number(form.id.value || 0), title: form.title.value.trim(), description: form.description.value.trim(),
             starts_at: form.starts_at.value.replace('T', ' '), ends_at: form.ends_at.value.replace('T', ' '), status: form.status.value,
-            questions: [...form.querySelectorAll('.trivia-question')].map((question) => ({ text: question.querySelector('[name="question_text"]').value.trim(), points: Number(question.querySelector('[name="question_points"]').value), options: [...question.querySelectorAll('[name="option_text"]')].map((input, index) => ({ text: input.value.trim(), correct: question.querySelectorAll('[data-option-correct]')[index].checked })) }))
+            questions: [...form.querySelectorAll('.trivia-question')].map((question) => ({ text: question.querySelector('[name="question_text"]').value.trim(), explanation: question.querySelector('[name="question_explanation"]').value.trim(), points: Number(question.querySelector('[name="question_points"]').value), options: [...question.querySelectorAll('[name="option_text"]')].map((input, index) => ({ text: input.value.trim(), correct: question.querySelectorAll('[data-option-correct]')[index].checked })) }))
         };
     }
 

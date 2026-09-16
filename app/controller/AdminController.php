@@ -115,7 +115,7 @@ final class AdminController
         if (!isset($extensions[$mime])) {
             throw new \RuntimeException('Solo se permiten imágenes JPG, PNG o WebP.');
         }
-        $directory = dirname(__DIR__, 2) . '/storage/uploads/images';
+        $directory = dirname(__DIR__, 2) . '/public/images/trivia';
         if (!is_dir($directory) && !mkdir($directory, 0750, true) && !is_dir($directory)) {
             throw new \RuntimeException('No se pudo preparar el almacenamiento de imágenes.');
         }
@@ -123,7 +123,7 @@ final class AdminController
         if (!move_uploaded_file($file['tmp_name'], $directory . '/' . $filename)) {
             throw new \RuntimeException('No se pudo guardar la imagen.');
         }
-        return '/storage/uploads/images/' . $filename;
+        return '/public/images/trivia/' . $filename;
     }
 
     private function validateTrivia(mixed $payload): array
@@ -143,6 +143,7 @@ final class AdminController
             if (trim((string) ($question['text'] ?? '')) !== '' && count($options) === 4 && count(array_filter($options, fn (array $option): bool => $option['correct'])) === 1) {
                 $questions[] = [
                     'text' => trim((string) $question['text']),
+                    'explanation' => trim((string) ($question['explanation'] ?? '')),
                     'points' => max(1, (int) ($question['points'] ?? 1)),
                     'options' => $options,
                 ];

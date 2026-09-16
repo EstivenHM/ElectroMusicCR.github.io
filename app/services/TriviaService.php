@@ -14,10 +14,10 @@ final class TriviaService
     {
     }
 
-    public function current(): ?array
+    public function current(?int $playerId = null): ?array
     {
         $now = new DateTimeImmutable('now', new DateTimeZone('America/Costa_Rica'));
-        return $this->repository->findCurrent($now->format('Y-m-d H:i:s'), $now->format('Y-m-d'));
+        return $this->repository->findCurrent($now->format('Y-m-d H:i:s'), $now->format('Y-m-d'), $playerId);
     }
 
     public function submit(int $triviaId, int $playerId, array $answers): array

@@ -11,6 +11,8 @@ DirectoryIndex index.php default.php
     RewriteRule ^admin(?:/.*)?/?$ public/index.php [L,QSA]
     RewriteRule ^api/admin(?:/.*)?/?$ public/index.php [L,QSA]
     RewriteRule ^(trivia|ranking)/?$ public/index.php [L,QSA]
+    RewriteRule ^images/trivia/([a-f0-9]{32}\.(?:jpg|png|webp))$ public/images/trivia/$1 [L,NC]
+    RewriteRule ^media/trivia/[a-f0-9]{32}$ public/index.php [L,QSA,NC]
     RewriteRule ^api/(ranking|csrf|trivia/(current|player|submissions))/?$ public/index.php [L,QSA]
 </IfModule>
 

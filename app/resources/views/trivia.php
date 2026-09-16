@@ -32,7 +32,14 @@ declare(strict_types=1);
         </div>
         <section class="trivia-panel" data-trivia-app aria-live="polite">
             <div data-trivia-status class="status-message" role="status">Cargando trivia...</div>
-            <button class="button button--primary" type="button" data-open-identity hidden>Identificarse para participar</button>
+            <div class="trivia-intro" data-trivia-intro hidden>
+                <img data-trivia-image alt="">
+                <div>
+                    <h2 data-trivia-title></h2>
+                    <p data-trivia-description></p>
+                </div>
+            </div>
+            <div data-trivia-result class="trivia-result" hidden></div>
             <form data-trivia-form class="question-list" hidden></form>
         </section>
     </div>
@@ -40,14 +47,18 @@ declare(strict_types=1);
 <dialog class="app-modal" data-identity-modal aria-labelledby="identity-modal-title">
     <div class="app-modal__content">
         <h2 id="identity-modal-title">Identificate para participar</h2>
-        <p>Usa un nickname nuevo para crear tu identidad o escribe tu codigo si ya participaste.</p>
-        <form data-player-form novalidate>
+        <p data-identity-description>Selecciona como deseas identificarte para enviar tus respuestas.</p>
+        <div class="identity-choice" data-identity-choice>
+            <button class="button button--primary" type="button" data-register-player>Registrar nickname</button>
+            <button class="button button--ghost" type="button" data-login-player>Ingresar con mi nickname</button>
+        </div>
+        <form data-player-form novalidate hidden>
             <label for="nickname">Nickname</label>
             <input id="nickname" name="nickname" type="text" maxlength="40" autocomplete="nickname" required>
-            <label for="recovery-code">Codigo de acceso</label>
+            <label for="recovery-code" data-recovery-label>Codigo de acceso</label>
             <input id="recovery-code" name="recovery_code" type="password" maxlength="128" autocomplete="one-time-code">
             <div class="app-modal__actions">
-                <button class="button button--ghost" type="button" data-close-modal>Cancelar</button>
+                <button class="button button--ghost" type="button" data-back-identity>Volver</button>
                 <button class="button button--primary" type="submit">Continuar</button>
             </div>
         </form>
@@ -66,6 +77,7 @@ declare(strict_types=1);
     <div class="app-modal__content">
         <h2 id="message-modal-title" data-modal-title>Mensaje</h2>
         <p data-modal-message></p>
+        <div class="modal-feedback" data-modal-feedback></div>
         <button class="button button--primary" type="button" data-close-message>Continuar</button>
     </div>
 </dialog>

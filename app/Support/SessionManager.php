@@ -41,6 +41,7 @@ final class SessionManager
         $provided ??= $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
         $stored = $_SESSION['csrf_token'] ?? '';
         if ($provided === '' || $stored === '' || !hash_equals($stored, $provided)) {
+            error_log('CSRF rechazado en ' . ($_SERVER['REQUEST_METHOD'] ?? 'GET') . ' ' . ($_SERVER['REQUEST_URI'] ?? '/'));
             if (!$jsonResponse) {
                 throw new RuntimeException('Solicitud no válida.');
             }

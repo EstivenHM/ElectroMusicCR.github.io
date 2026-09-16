@@ -127,8 +127,8 @@ final class AdminRepository
             }
 
             $questionStatement = $this->connection->prepare(
-                'INSERT INTO trivia_questions (trivia_id, question_text, question_date, points, position)
-                 VALUES (:trivia_id, :question_text, :question_date, :points, :position)'
+                'INSERT INTO trivia_questions (trivia_id, question_text, explanation, question_date, points, position)
+                 VALUES (:trivia_id, :question_text, :explanation, :question_date, :points, :position)'
             );
             $optionStatement = $this->connection->prepare(
                 'INSERT INTO trivia_options (question_id, option_text, is_correct, position)
@@ -138,6 +138,7 @@ final class AdminRepository
                 $questionStatement->execute([
                     'trivia_id' => $triviaId,
                     'question_text' => $question['text'],
+                    'explanation' => $question['explanation'] ?? null,
                     'question_date' => $trivia['scheduled_date'],
                     'points' => $question['points'],
                     'position' => $position + 1,
@@ -181,7 +182,7 @@ final class AdminRepository
             }
 
             $questions = $this->connection->prepare(
-                'SELECT id, question_text AS text, points, position FROM trivia_questions
+                'SELECT id, question_text AS text, explanation, points, position FROM trivia_questions
                  WHERE trivia_id = :trivia_id ORDER BY position'
             );
             $questions->execute(['trivia_id' => $trivia['id']]);

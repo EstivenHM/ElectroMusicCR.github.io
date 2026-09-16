@@ -30,7 +30,12 @@ final class TriviaController
             Response::json(['error' => 'La trivia no está disponible.'], 503);
         }
 
-        Response::json(['data' => $this->service->current()]);
+        try {
+            Response::json(['data' => $this->service->current(SessionManager::playerId())]);
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            Response::json(['error' => 'No fue posible cargar la trivia.'], 503);
+        }
     }
 
     public function csrf(): never
@@ -56,7 +61,8 @@ final class TriviaController
                 (string) ($payload['recovery_code'] ?? '')
             )]);
         } catch (Throwable $exception) {
-            Response::json(['error' => $exception->getMessage()], 422);
+            error_log($exception->getMessage());
+            Response::json(['error' => 'No fue posible validar la identidad.'], 422);
         }
     }
 
@@ -70,10 +76,10 @@ final class TriviaController
         }
 
         $payload = json_decode(file_get_contents('php://input') ?: '{}', true);
-        $answers = $payload['answers'] ?? null;
-        if (!is_array($payload) || !is_array($answers)) {
+        if (!is_array($payload) || !is_array($payload['answers'] ?? null)) {
             Response::json(['error' => 'Datos no válidos.'], 422);
         }
+        $answers = $payload['answers'];
 
         try {
             Response::json(['data' => $service->submit(
@@ -82,7 +88,10 @@ final class TriviaController
                 $answers
             )]);
         } catch (Throwable $exception) {
-            Response::json(['error' => $exception->getMessage()], 422);
+            error_log('Error al registrar submission: ' . $exception->getMessage());
+            $message = $exception->getMessage();
+            $status = str_contains($message, 'intentos') || str_contains($message, 'acertaste') ? 409 : 422;
+            Response::json(['error' => $status === 409 ? $message : 'No fue posible registrar las respuestas.'], $status);
         }
     }
 }
