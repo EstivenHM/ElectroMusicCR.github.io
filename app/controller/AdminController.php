@@ -43,16 +43,49 @@ final class AdminController
         SessionManager::validateCsrf();
         $title = trim((string) ($_POST['title'] ?? ''));
         $description = trim((string) ($_POST['description'] ?? ''));
+        $status = in_array($_POST['status'] ?? '', ['draft', 'published', 'archived'], true) ? $_POST['status'] : 'draft';
         if ($title === '' || $description === '') {
             Response::json(['error' => 'El título y la descripción son obligatorios.'], 422);
         }
-        Response::json(['data' => $this->repository->createNews($title, $description, $this->upload('image'), (int) $user['id'])], 201);
+        Response::json(['data' => $this->repository->createNews($title, $description, $this->upload('image'), $status, (int) $user['id'])], 201);
+    }
+
+    public function updateNews(): never
+    {
+        $user = SessionManager::requireAdmin();
+        SessionManager::validateCsrf();
+        $id = (int) ($_POST['id'] ?? 0);
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+        $status = in_array($_POST['status'] ?? '', ['draft', 'published', 'archived'], true) ? $_POST['status'] : 'draft';
+        if ($id < 1 || $title === '' || $description === '') {
+            Response::json(['error' => 'ID, título y descripción son obligatorios.'], 422);
+        }
+        try {
+            Response::json(['data' => $this->repository->updateNews($id, $title, $description, $this->upload('image'), $status, (int) $user['id'])]);
+        } catch (\RuntimeException $exception) {
+            Response::json(['error' => $exception->getMessage()], 404);
+        }
+    }
+
+    public function deleteNews(): never
+    {
+        $user = SessionManager::requireAdmin();
+        SessionManager::validateCsrf();
+        $payload = json_decode(file_get_contents('php://input') ?: '{}', true);
+        $id = (int) ($payload['id'] ?? 0);
+        if ($id < 1) {
+            Response::json(['error' => 'ID inválido.'], 422);
+        }
+        $this->repository->deleteNews($id);
+        Response::json(['data' => ['deleted' => true]]);
     }
 
     public function createEvent(): never
     {
         $user = SessionManager::requireAdmin();
         SessionManager::validateCsrf();
+        $status = in_array($_POST['status'] ?? '', ['draft', 'published', 'cancelled'], true) ? $_POST['status'] : 'draft';
         $event = [
             'title' => trim((string) ($_POST['title'] ?? '')),
             'description' => trim((string) ($_POST['description'] ?? '')),
@@ -61,11 +94,49 @@ final class AdminController
             'event_time' => (string) ($_POST['event_time'] ?? ''),
             'location' => trim((string) ($_POST['location'] ?? '')),
             'ticket_url' => trim((string) ($_POST['ticket_url'] ?? '')) ?: null,
+            'status' => $status,
         ];
         if ($event['title'] === '' || $event['description'] === '' || $event['event_date'] === '' || $event['location'] === '') {
             Response::json(['error' => 'Completa los campos obligatorios del evento.'], 422);
         }
         Response::json(['data' => $this->repository->createEvent($event, (int) $user['id'])], 201);
+    }
+
+    public function updateEvent(): never
+    {
+        $user = SessionManager::requireAdmin();
+        SessionManager::validateCsrf();
+        $id = (int) ($_POST['id'] ?? 0);
+        $event = [
+            'title' => trim((string) ($_POST['title'] ?? '')),
+            'description' => trim((string) ($_POST['description'] ?? '')),
+            'event_date' => (string) ($_POST['event_date'] ?? ''),
+            'event_time' => (string) ($_POST['event_time'] ?? ''),
+            'location' => trim((string) ($_POST['location'] ?? '')),
+            'ticket_url' => trim((string) ($_POST['ticket_url'] ?? '')) ?: null,
+            'status' => in_array($_POST['status'] ?? '', ['draft', 'published', 'cancelled'], true) ? $_POST['status'] : 'draft',
+        ];
+        if ($id < 1 || $event['title'] === '' || $event['description'] === '' || $event['event_date'] === '' || $event['location'] === '') {
+            Response::json(['error' => 'Completa los campos obligatorios del evento.'], 422);
+        }
+        try {
+            Response::json(['data' => $this->repository->updateEvent($id, $event, $this->upload('image'))]);
+        } catch (\RuntimeException $exception) {
+            Response::json(['error' => $exception->getMessage()], 404);
+        }
+    }
+
+    public function deleteEvent(): never
+    {
+        $user = SessionManager::requireAdmin();
+        SessionManager::validateCsrf();
+        $payload = json_decode(file_get_contents('php://input') ?: '{}', true);
+        $id = (int) ($payload['id'] ?? 0);
+        if ($id < 1) {
+            Response::json(['error' => 'ID inválido.'], 422);
+        }
+        $this->repository->deleteEvent($id);
+        Response::json(['data' => ['deleted' => true]]);
     }
 
     public function saveTrivia(): never

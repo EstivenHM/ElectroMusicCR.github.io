@@ -9,6 +9,8 @@
     const title = document.querySelector('[data-admin-title]');
     const status = document.querySelector('[data-admin-status]');
     let dashboard = { news: [], events: [], trivia: null };
+    let editingNews = null;
+    let editingEvent = null;
 
     function lockAdmin() {
         shellElement?.remove();
@@ -59,25 +61,47 @@
     }
 
     function renderNews() {
-        shell('Novedades', `<div class="admin-panel"><h2>Agregar novedad</h2><form data-form="news" class="admin-form admin-form--grid" enctype="multipart/form-data">
-            <label>Título<input name="title" maxlength="180" required></label>
-            <label class="admin-form__wide">Descripción<textarea name="description" rows="6" required></textarea></label>
+        const isEditing = editingNews !== null;
+        const newsItem = editingNews || {};
+        shell('Novedades', `<div class="admin-panel"><h2>${isEditing ? 'Editar novedad' : 'Agregar novedad'}</h2><form data-form="news" class="admin-form admin-form--grid" enctype="multipart/form-data">
+            <input type="hidden" name="id" value="${newsItem.id || ''}">
+            <label>Título<input name="title" maxlength="180" value="${escapeHtml(newsItem.title)}" required></label>
+            <label>Estado<select name="status"><option value="draft" ${newsItem.status === 'draft' || !newsItem.status ? 'selected' : ''}>Borrador</option><option value="published" ${newsItem.status === 'published' ? 'selected' : ''}>Publicado</option><option value="archived" ${newsItem.status === 'archived' ? 'selected' : ''}>Archivado</option></select></label>
+            <label class="admin-form__wide">Descripción<textarea name="description" rows="6" required>${escapeHtml(newsItem.description)}</textarea></label>
             <label>Imagen<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>
-            <button class="button button--primary" type="submit">Guardar novedad</button>
-        </form></div><div class="admin-panel"><h2>Registradas</h2><div class="admin-list">${dashboard.news.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.status)}</span></article>`).join('') || '<p>No hay novedades todavía.</p>'}</div></div>`);
+            ${isEditing ? `<button type="button" class="button button--ghost" data-cancel-edit="news">Cancelar</button>` : ''}
+            <button class="button button--primary" type="submit">${isEditing ? 'Actualizar' : 'Guardar'} novedad</button>
+        </form></div><div class="admin-panel"><h2>Registradas</h2><div class="admin-list">${dashboard.news.map((item) => `<article>
+            <div class="admin-list__info"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.status)}</span></div>
+            <div class="admin-list__actions">
+                <button type="button" class="button button--ghost" data-edit-news="${item.id}">Editar</button>
+                <button type="button" class="button button--ghost" data-delete-news="${item.id}">Eliminar</button>
+            </div>
+        </article>`).join('') || '<p>No hay novedades todavía.</p>'}</div></div>`);
     }
 
     function renderEvents() {
-        shell('Eventos', `<div class="admin-panel"><h2>Agregar evento</h2><form data-form="event" class="admin-form admin-form--grid" enctype="multipart/form-data">
-            <label>Título<input name="title" maxlength="180" required></label>
-            <label>Fecha<input name="event_date" type="date" required></label>
-            <label>Hora<input name="event_time" type="time"></label>
-            <label>Ubicación<input name="location" maxlength="180" required></label>
-            <label>Enlace de entradas<input name="ticket_url" type="url"></label>
+        const isEditing = editingEvent !== null;
+        const eventItem = editingEvent || {};
+        shell('Eventos', `<div class="admin-panel"><h2>${isEditing ? 'Editar evento' : 'Agregar evento'}</h2><form data-form="event" class="admin-form admin-form--grid" enctype="multipart/form-data">
+            <input type="hidden" name="id" value="${eventItem.id || ''}">
+            <label>Título<input name="title" maxlength="180" value="${escapeHtml(eventItem.title)}" required></label>
+            <label>Fecha<input name="event_date" type="date" value="${eventItem.event_date || ''}" required></label>
+            <label>Hora<input name="event_time" type="time" value="${eventItem.event_time || ''}"></label>
+            <label>Ubicación<input name="location" maxlength="180" value="${escapeHtml(eventItem.location)}" required></label>
+            <label>Enlace de entradas<input name="ticket_url" type="url" value="${escapeHtml(eventItem.ticket_url)}"></label>
+            <label>Estado<select name="status"><option value="draft" ${eventItem.status === 'draft' || !eventItem.status ? 'selected' : ''}>Borrador</option><option value="published" ${eventItem.status === 'published' ? 'selected' : ''}>Publicado</option><option value="cancelled" ${eventItem.status === 'cancelled' ? 'selected' : ''}>Cancelado</option></select></label>
             <label>Imagen<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>
-            <label class="admin-form__wide">Descripción<textarea name="description" rows="5" required></textarea></label>
-            <button class="button button--primary" type="submit">Guardar evento</button>
-        </form></div><div class="admin-panel"><h2>Registrados</h2><div class="admin-list">${dashboard.events.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.event_date)} · ${escapeHtml(item.status)}</span></article>`).join('') || '<p>No hay eventos todavía.</p>'}</div></div>`);
+            <label class="admin-form__wide">Descripción<textarea name="description" rows="5" required>${escapeHtml(eventItem.description)}</textarea></label>
+            ${isEditing ? `<button type="button" class="button button--ghost" data-cancel-edit="events">Cancelar</button>` : ''}
+            <button class="button button--primary" type="submit">${isEditing ? 'Actualizar' : 'Guardar'} evento</button>
+        </form></div><div class="admin-panel"><h2>Registrados</h2><div class="admin-list">${dashboard.events.map((item) => `<article>
+            <div class="admin-list__info"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.event_date)} · ${escapeHtml(item.status)}</span></div>
+            <div class="admin-list__actions">
+                <button type="button" class="button button--ghost" data-edit-event="${item.id}">Editar</button>
+                <button type="button" class="button button--ghost" data-delete-event="${item.id}">Eliminar</button>
+            </div>
+        </article>`).join('') || '<p>No hay eventos todavía.</p>'}</div></div>`);
     }
 
     function questionTemplate(question = {}) {
@@ -129,14 +153,72 @@
         } catch (error) { setStatus(error.message, true); }
     }
 
-    app.addEventListener('click', (event) => {
+    app.addEventListener('click', async (event) => {
         const panel = event.target.closest('[data-admin-panel]');
         if (panel) {
             document.querySelectorAll('[data-admin-panel]').forEach((item) => item.classList.toggle('is-active', item === panel));
+            editingNews = null;
+            editingEvent = null;
             ({ home: renderHome, news: renderNews, events: renderEvents, trivia: renderTrivia, profile: renderProfile }[panel.dataset.adminPanel])();
         }
         if (event.target.closest('[data-add-question]')) content.querySelector('[data-questions]').insertAdjacentHTML('beforeend', questionTemplate());
         if (event.target.closest('[data-remove-question]')) event.target.closest('.trivia-question').remove();
+
+        const editNewsBtn = event.target.closest('[data-edit-news]');
+        if (editNewsBtn) {
+            const id = parseInt(editNewsBtn.dataset.editNews, 10);
+            editingNews = dashboard.news.find((item) => Number(item.id) === id) || null;
+            renderNews();
+        }
+
+        const deleteNewsBtn = event.target.closest('[data-delete-news]');
+        if (deleteNewsBtn) {
+            const id = parseInt(deleteNewsBtn.dataset.deleteNews, 10);
+            if (confirm('¿Eliminar esta novedad?')) {
+                try {
+                    await request('/api/admin/news/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+                    setStatus('Novedad eliminada.');
+                    dashboard = await request('/api/admin/dashboard');
+                    renderNews();
+                } catch (error) {
+                    setStatus(error.message, true);
+                }
+            }
+        }
+
+        const editEventBtn = event.target.closest('[data-edit-event]');
+        if (editEventBtn) {
+            const id = parseInt(editEventBtn.dataset.editEvent, 10);
+            editingEvent = dashboard.events.find((item) => Number(item.id) === id) || null;
+            renderEvents();
+        }
+
+        const deleteEventBtn = event.target.closest('[data-delete-event]');
+        if (deleteEventBtn) {
+            const id = parseInt(deleteEventBtn.dataset.deleteEvent, 10);
+            if (confirm('¿Eliminar este evento?')) {
+                try {
+                    await request('/api/admin/events/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+                    setStatus('Evento eliminado.');
+                    dashboard = await request('/api/admin/dashboard');
+                    renderEvents();
+                } catch (error) {
+                    setStatus(error.message, true);
+                }
+            }
+        }
+
+        const cancelBtn = event.target.closest('[data-cancel-edit]');
+        if (cancelBtn) {
+            const section = cancelBtn.dataset.cancelEdit;
+            if (section === 'events') {
+                editingEvent = null;
+                renderEvents();
+            } else {
+                editingNews = null;
+                renderNews();
+            }
+        }
     });
 
     app.addEventListener('submit', async (event) => {
@@ -145,7 +227,18 @@
         event.preventDefault();
         try {
             let result;
-            if (form.dataset.form === 'news' || form.dataset.form === 'event') result = await request(`/api/admin/${form.dataset.form === 'news' ? 'news' : 'events'}`, { method: 'POST', body: new FormData(form) });
+            if (form.dataset.form === 'news') {
+                const isEdit = editingNews !== null;
+                const url = isEdit ? '/api/admin/news/update' : '/api/admin/news';
+                result = await request(url, { method: 'POST', body: new FormData(form) });
+                editingNews = null;
+            }
+            if (form.dataset.form === 'event') {
+                const isEdit = editingEvent !== null;
+                const url = isEdit ? '/api/admin/events/update' : '/api/admin/events';
+                result = await request(url, { method: 'POST', body: new FormData(form) });
+                editingEvent = null;
+            }
             if (form.dataset.form === 'trivia') {
                 const trivia = readTriviaForm(form);
                 const body = new FormData(form);

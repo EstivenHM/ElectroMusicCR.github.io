@@ -61,34 +61,108 @@ final class AdminRepository
         );
     }
 
-    public function createNews(string $title, string $description, ?string $imagePath, int $userId): array
+    public function createNews(string $title, string $description, ?string $imagePath, string $status, int $userId): array
     {
         $statement = $this->connection->prepare(
             'INSERT INTO news (title, description, image_path, status, created_by)
-             VALUES (:title, :description, :image_path, "draft", :created_by)'
+             VALUES (:title, :description, :image_path, :status, :created_by)'
         );
         $statement->execute([
             'title' => $title,
             'description' => $description,
             'image_path' => $imagePath,
+            'status' => $status,
             'created_by' => $userId,
         ]);
 
         return ['id' => (int) $this->connection->lastInsertId()];
     }
 
+    public function updateNews(int $id, string $title, string $description, ?string $imagePath, string $status, int $userId): array
+    {
+        $existing = $this->connection->prepare('SELECT image_path FROM news WHERE id = :id');
+        $existing->execute(['id' => $id]);
+        $current = $existing->fetch();
+        if ($current === false) {
+            throw new \RuntimeException('La novedad no existe.');
+        }
+        $finalImage = $imagePath ?? ($current['image_path'] ?? null);
+        $statement = $this->connection->prepare(
+            'UPDATE news SET title = :title, description = :description, image_path = :image_path, status = :status, updated_at = NOW()
+             WHERE id = :id'
+        );
+        $statement->execute([
+            'id' => $id,
+            'title' => $title,
+            'description' => $description,
+            'image_path' => $finalImage,
+            'status' => $status,
+        ]);
+
+        return ['id' => $id];
+    }
+
+    public function deleteNews(int $id): void
+    {
+        $statement = $this->connection->prepare('DELETE FROM news WHERE id = :id');
+        $statement->execute(['id' => $id]);
+    }
+
     public function createEvent(array $event, int $userId): array
     {
         $statement = $this->connection->prepare(
             'INSERT INTO events (title, description, image_path, event_date, event_time, location, ticket_url, status, created_by)
-             VALUES (:title, :description, :image_path, :event_date, :event_time, :location, :ticket_url, "draft", :created_by)'
+             VALUES (:title, :description, :image_path, :event_date, :event_time, :location, :ticket_url, :status, :created_by)'
         );
         $statement->execute([
-            ...$event,
+            'title' => $event['title'],
+            'description' => $event['description'],
+            'image_path' => $event['image_path'] ?? null,
+            'event_date' => $event['event_date'],
+            'event_time' => $event['event_time'] ?: null,
+            'location' => $event['location'],
+            'ticket_url' => $event['ticket_url'] ?: null,
+            'status' => $event['status'] ?? 'draft',
             'created_by' => $userId,
         ]);
 
         return ['id' => (int) $this->connection->lastInsertId()];
+    }
+
+    public function updateEvent(int $id, array $event, ?string $imagePath): array
+    {
+        $existing = $this->connection->prepare('SELECT image_path FROM events WHERE id = :id');
+        $existing->execute(['id' => $id]);
+        $current = $existing->fetch();
+        if ($current === false) {
+            throw new \RuntimeException('El evento no existe.');
+        }
+        $finalImage = $imagePath ?? ($current['image_path'] ?? null);
+        $statement = $this->connection->prepare(
+            'UPDATE events SET title = :title, description = :description, image_path = :image_path,
+             event_date = :event_date, event_time = :event_time, location = :location,
+             ticket_url = :ticket_url, status = :status, updated_at = NOW()
+             WHERE id = :id'
+        );
+        $statement->execute([
+            'id' => $id,
+            'title' => $event['title'],
+            'description' => $event['description'],
+            'image_path' => $finalImage,
+            'event_date' => $event['event_date'],
+            'event_time' => $event['event_time'] ?: null,
+            'location' => $event['location'],
+            'ticket_url' => $event['ticket_url'] ?: null,
+            'status' => $event['status'],
+        ]);
+
+        return ['id' => $id];
+    }
+
+    public function deleteEvent(int $id): void
+    {
+        $statement = $this->connection->prepare('DELETE FROM events WHERE id = :id');
+        $statement->execute(['id' => $id]);
     }
 
     public function saveTrivia(array $trivia, int $userId): array

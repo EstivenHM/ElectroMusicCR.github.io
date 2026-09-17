@@ -22,6 +22,7 @@ final class RankingService
             'items' => $this->repository->paginate($limit, $offset),
             'page' => $page,
             'limit' => $limit,
+            'settings' => $this->repository->getSettings(),
         ];
     }
 }

@@ -26,4 +26,21 @@ final class RankingRepository
 
         return $statement->fetchAll();
     }
+
+    public function getSettings(): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT title, description, image_path FROM trivia_settings WHERE id = 1 LIMIT 1'
+        );
+        $statement->execute();
+        $settings = $statement->fetch();
+        if ($settings === false) {
+            return null;
+        }
+        if (is_string($settings['image_path'] ?? null) && preg_match('/(?:\/|^)([a-f0-9]{32}\.(?:jpg|png|webp))$/i', $settings['image_path'], $matches)) {
+            $filename = strtolower($matches[1]);
+            $settings['image_path'] = '/public/images/trivia/' . $filename;
+        }
+        return $settings;
+    }
 }

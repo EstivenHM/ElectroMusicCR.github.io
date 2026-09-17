@@ -15,6 +15,8 @@ final class DatabaseManager
     private const DEFAULT_NAME = 'electromusiccrdb';
     private const DEFAULT_USER = 'root';
 
+    private static ?array $envCache = null;
+
     public static function connection(): PDO
     {
         static $connection = null;
@@ -27,12 +29,12 @@ final class DatabaseManager
         $port = self::environment('DB_PORT', self::DEFAULT_PORT);
         $name = self::environment('DB_NAME', self::DEFAULT_NAME);
         $user = self::environment('DB_USER', self::DEFAULT_USER);
-        $password = getenv('DB_PASSWORD') ?: '';
+        $password = self::environment('DB_PASSWORD', '');
 
         if (!preg_match('/^[a-zA-Z0-9_.-]+$/', $host) || !ctype_digit($port) || (int) $port < 1 || (int) $port > 65535) {
             throw new RuntimeException('La configuración del servidor de base de datos no es válida.');
         }
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $name) || $user === '') {
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name) || $user === '') {
             throw new RuntimeException('La configuración de la base de datos no es válida.');
         }
 
@@ -45,7 +47,7 @@ final class DatabaseManager
                 PDO::ATTR_EMULATE_PREPARES => false,
                 PDO::ATTR_PERSISTENT => false,
                 PDO::ATTR_STRINGIFY_FETCHES => false,
-                PDO::ATTR_TIMEOUT => 5,
+                PDO::ATTR_TIMEOUT => 10,
                 PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci',
             ]);
         } catch (PDOException $exception) {
@@ -57,7 +59,67 @@ final class DatabaseManager
 
     private static function environment(string $name, string $default): string
     {
+        $loadedEnv = self::loadEnvFile();
+        if (isset($loadedEnv[$name])) {
+            return $loadedEnv[$name];
+        }
+
         $value = getenv($name);
-        return is_string($value) && $value !== '' ? trim($value) : $default;
+        if (is_string($value) && $value !== '') {
+            return trim($value);
+        }
+
+        if (isset($_ENV[$name]) && is_string($_ENV[$name]) && $_ENV[$name] !== '') {
+            return trim($_ENV[$name]);
+        }
+
+        if (isset($_SERVER[$name]) && is_string($_SERVER[$name]) && $_SERVER[$name] !== '') {
+            return trim($_SERVER[$name]);
+        }
+
+        return $default;
+    }
+
+    private static function loadEnvFile(): array
+    {
+        if (self::$envCache !== null) {
+            return self::$envCache;
+        }
+
+        self::$envCache = [];
+        $envFile = dirname(__DIR__) . '/.env';
+
+        if (!is_file($envFile) || !is_readable($envFile)) {
+            return self::$envCache;
+        }
+
+        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($lines)) {
+            return self::$envCache;
+        }
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+
+            if (str_contains($line, '=')) {
+                [$key, $value] = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim($value);
+
+                if (
+                    (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+                    (str_starts_with($value, '\'') && str_ends_with($value, '\''))
+                ) {
+                    $value = substr($value, 1, -1);
+                }
+
+                self::$envCache[$key] = $value;
+            }
+        }
+
+        return self::$envCache;
     }
 }

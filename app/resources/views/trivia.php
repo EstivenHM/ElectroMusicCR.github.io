@@ -9,6 +9,7 @@ declare(strict_types=1);
     <meta name="description" content="Trivia diaria de ElectroMusicCR.">
     <title>Trivia | ElectroMusicCR</title>
     <link rel="stylesheet" href="/public/css/main.css">
+    <script src="/public/js/main.js" defer></script>
     <script src="/public/js/trivia.js" defer></script>
 </head>
 <body>
@@ -17,7 +18,13 @@ declare(strict_types=1);
         <a class="brand" href="/" aria-label="Ir al inicio">
             <span class="brand-text"><strong>ElectroMusicCR</strong><small>Trivia diaria</small></span>
         </a>
-        <nav class="site-nav" aria-label="Navegacion principal">
+        <button class="nav-toggle" type="button" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+            <span class="nav-toggle__bar"></span>
+            <span class="nav-toggle__bar"></span>
+            <span class="nav-toggle__bar"></span>
+        </button>
+        <nav class="site-nav" id="site-nav" aria-label="Navegacion principal" data-site-nav>
+            <a href="/">Inicio</a>
             <a class="nav-link--accent" href="/trivia" aria-current="page">Trivia</a>
             <a href="/ranking">Ranking</a>
         </nav>

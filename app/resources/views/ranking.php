@@ -9,6 +9,7 @@ declare(strict_types=1);
     <meta name="description" content="Ranking global de ElectroMusicCR.">
     <title>Ranking | ElectroMusicCR</title>
     <link rel="stylesheet" href="/public/css/main.css">
+    <script src="/public/js/main.js" defer></script>
     <script src="/public/js/ranking.js" defer></script>
 </head>
 <body>
@@ -17,7 +18,13 @@ declare(strict_types=1);
         <a class="brand" href="/" aria-label="Ir al inicio">
             <span class="brand-text"><strong>ElectroMusicCR</strong><small>Ranking de trivia</small></span>
         </a>
-        <nav class="site-nav" aria-label="Navegacion principal">
+        <button class="nav-toggle" type="button" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+            <span class="nav-toggle__bar"></span>
+            <span class="nav-toggle__bar"></span>
+            <span class="nav-toggle__bar"></span>
+        </button>
+        <nav class="site-nav" id="site-nav" aria-label="Navegacion principal" data-site-nav>
+            <a href="/">Inicio</a>
             <a href="/trivia">Trivia</a>
             <a class="nav-link--accent" href="/ranking" aria-current="page">Ranking</a>
         </nav>
@@ -25,10 +32,13 @@ declare(strict_types=1);
 </header>
 <main class="section" id="ranking-page">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">Clasificacion global</p>
-            <h1>Ranking de la comunidad</h1>
-            <p class="lead">Puntos acumulados en envios validos de las trivias.</p>
+        <div class="ranking-header" data-ranking-header hidden>
+            <img data-ranking-image alt="" hidden>
+            <div class="ranking-header__content">
+                <h1 data-ranking-title></h1>
+                <p data-ranking-description></p>
+            </div>
+            <small class="countdown-timer" data-countdown hidden></small>
         </div>
         <section class="ranking-panel" aria-labelledby="ranking-title">
             <h2 id="ranking-title" class="visually-hidden">Tabla de posiciones</h2>

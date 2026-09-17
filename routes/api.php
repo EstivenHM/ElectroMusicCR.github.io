@@ -19,8 +19,24 @@ return static function (?RankingController $rankingController = null, ?TriviaCon
         $adminController->createNews();
     }
 
+    if ($adminController !== null && $path === '/api/admin/news/update' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $adminController->updateNews();
+    }
+
+    if ($adminController !== null && $path === '/api/admin/news/delete' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $adminController->deleteNews();
+    }
+
     if ($adminController !== null && $path === '/api/admin/events' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $adminController->createEvent();
+    }
+
+    if ($adminController !== null && $path === '/api/admin/events/update' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $adminController->updateEvent();
+    }
+
+    if ($adminController !== null && $path === '/api/admin/events/delete' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $adminController->deleteEvent();
     }
 
     if ($adminController !== null && $path === '/api/admin/trivia' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {

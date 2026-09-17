@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Controller\HomeController;
 use App\Controller\RankingController;
 use App\Controller\TriviaController;
 use App\Controller\AuthController;
 use App\Controller\AdminController;
 use App\Support\Response;
 
-return static function (?RankingController $rankingController = null, ?TriviaController $triviaController = null, ?AuthController $authController = null, ?AdminController $adminController = null): void {
+return static function (?HomeController $homeController = null, ?RankingController $rankingController = null, ?TriviaController $triviaController = null, ?AuthController $authController = null, ?AdminController $adminController = null): void {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $path = rtrim($path, '/') ?: '/';
+
+    if ($homeController !== null && $path === '/') {
+        $homeController->index();
+    }
 
     if ($authController !== null && $path === '/admin/login') {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {

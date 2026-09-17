@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/bootstrap/autoload.php';
 
+use App\Controller\HomeController;
 use App\Controller\RankingController;
 use App\Controller\TriviaController;
 use App\Controller\AuthController;
@@ -13,10 +14,12 @@ use App\Repository\AdminRepository;
 use App\Repository\RankingRepository;
 use App\Repository\TriviaRepository;
 use App\Repository\TriviaPlayerRepository;
+use App\Repository\HomeRepository;
 use App\Services\RankingService;
 use App\Services\AuthService;
 use App\Services\TriviaService;
 use App\Services\TriviaPlayerService;
+use App\Services\HomeService;
 use Config\DatabaseManager;
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -134,5 +137,19 @@ if (rtrim($path, '/') === '/trivia') {
     $triviaController = new TriviaController(null);
 }
 
+$homeController = null;
+if (rtrim($path, '/') === '/' || rtrim($path, '/') === '') {
+    try {
+        $homeController = new HomeController(
+            new HomeService(new HomeRepository(DatabaseManager::connection()))
+        );
+    } catch (Throwable $exception) {
+        error_log($exception->getMessage());
+        http_response_code(503);
+        echo 'El servicio no esta disponible.';
+        exit;
+    }
+}
+
 $route = require dirname(__DIR__) . '/routes/web.php';
-$route($rankingController, $triviaController, $authController, $adminController);
+$route($homeController, $rankingController, $triviaController, $authController, $adminController);
