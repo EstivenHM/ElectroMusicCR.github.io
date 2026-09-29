@@ -20,7 +20,7 @@ final class HomeRepository
                  FROM news
                  WHERE status = "published"
                  ORDER BY created_at DESC
-                 LIMIT 6'
+                 LIMIT 4'
             );
             $statement->execute();
             $results = $statement->fetchAll();
@@ -32,7 +32,6 @@ final class HomeRepository
                     }
                 }
             }
-            error_log('HomeRepository::getPublishedNews() found ' . count($results) . ' records');
             return $results;
         } catch (\Throwable $e) {
             error_log('HomeRepository::getPublishedNews() error: ' . $e->getMessage());
@@ -47,8 +46,9 @@ final class HomeRepository
                 'SELECT id, title, description, image_path, event_date, event_time, location, ticket_url
                  FROM events
                  WHERE status = "published"
-                 ORDER BY event_date DESC, event_time DESC
-                 LIMIT 12'
+                   AND (event_date > CURDATE() OR (event_date = CURDATE() AND (event_time IS NULL OR event_time >= CURTIME())))
+                 ORDER BY event_date ASC, event_time ASC
+                 LIMIT 4'
             );
             $statement->execute();
             $results = $statement->fetchAll();
@@ -63,6 +63,35 @@ final class HomeRepository
             return $results;
         } catch (\Throwable $e) {
             error_log('HomeRepository::getPublishedEvents() error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getUpcomingEvents(int $limit = 50): array
+    {
+        try {
+            $limit = max(1, min($limit, 100));
+            $statement = $this->connection->prepare(
+                'SELECT id, title, description, image_path, event_date, event_time, location, ticket_url
+                 FROM events
+                 WHERE status = "published"
+                   AND (event_date > CURDATE() OR (event_date = CURDATE() AND (event_time IS NULL OR event_time >= CURTIME())))
+                 ORDER BY event_date ASC, event_time ASC
+                 LIMIT ' . (int) $limit
+            );
+            $statement->execute();
+            $results = $statement->fetchAll();
+            foreach ($results as &$event) {
+                if (!empty($event['image_path'])) {
+                    $event['image_path'] = trim((string) $event['image_path']);
+                    if ($event['image_path'] !== '' && !preg_match('#^(https?://|data:|/)#i', $event['image_path'])) {
+                        $event['image_path'] = '/' . $event['image_path'];
+                    }
+                }
+            }
+            return $results;
+        } catch (\Throwable $e) {
+            error_log('HomeRepository::getUpcomingEvents() error: ' . $e->getMessage());
             return [];
         }
     }

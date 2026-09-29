@@ -10,6 +10,7 @@
     const playerMessage = document.querySelector('[data-player-message]');
     const recoveryLabel = document.querySelector('[data-recovery-label]');
     const recoveryInput = document.querySelector('#recovery-code');
+    const codeHint = document.querySelector('[data-code-hint]');
     const codeModal = document.querySelector('[data-code-modal]');
     const recoveryCode = document.querySelector('[data-recovery-code]');
     const confirmCode = document.querySelector('[data-confirm-code]');
@@ -23,10 +24,23 @@
     const triviaDescription = document.querySelector('[data-trivia-description]');
     const triviaForm = document.querySelector('[data-trivia-form]');
     const triviaResult = document.querySelector('[data-trivia-result]');
+    const curiousModal = document.querySelector('[data-curious-modal]');
+    const curiousScore = document.querySelector('[data-curious-score]');
+    const curiousSlides = document.querySelector('[data-curious-slides]');
+    const curiousCounter = document.querySelector('[data-curious-counter]');
+    const curiousPrev = document.querySelector('[data-curious-prev]');
+    const curiousNext = document.querySelector('[data-curious-next]');
+    const closeCurious = document.querySelector('[data-close-curious]');
     let csrfToken = '';
     let currentTrivia = null;
     let identityMode = 'register';
+    let curiousData = [];
+    let currentSlideIndex = 0;
     const nicknameStorageKey = 'electromusiccr_trivia_nickname';
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;'
+    }[character]));
 
     const openModal = (modal) => {
         if (typeof modal.showModal === 'function' && !modal.open) {
@@ -87,10 +101,14 @@
         triviaTitle.textContent = trivia.title || 'Trivia del dia';
         triviaDescription.textContent = trivia.description || '';
         triviaDescription.hidden = !trivia.description;
-        if (trivia.image_path) {
-            triviaImage.src = trivia.image_path;
+        delete triviaImage.dataset.triedFallback;
+        if (trivia.image_path && typeof trivia.image_path === 'string' && trivia.image_path.trim() !== '') {
+            let path = trivia.image_path.trim();
+            if (!path.startsWith('/') && !path.startsWith('http')) {
+                path = '/' + path;
+            }
+            triviaImage.src = path;
             triviaImage.alt = trivia.title || 'Imagen de la trivia';
-            triviaImage.dataset.fallbackSrc = trivia.image_path.replace('/public/images/', '/images/');
             triviaImage.hidden = false;
         } else {
             triviaImage.removeAttribute('src');
@@ -100,9 +118,15 @@
     };
 
     triviaImage.addEventListener('error', () => {
-        const fallbackSrc = triviaImage.dataset.fallbackSrc || '';
-        if (fallbackSrc && triviaImage.src !== new URL(fallbackSrc, window.location.href).href) {
-            triviaImage.src = fallbackSrc;
+        const currentSrc = triviaImage.getAttribute('src') || '';
+        if (currentSrc.includes('/public/images/') && !triviaImage.dataset.triedFallback) {
+            triviaImage.dataset.triedFallback = 'true';
+            triviaImage.src = currentSrc.replace('/public/images/', '/images/');
+            return;
+        }
+        if (currentSrc.includes('/images/') && !triviaImage.dataset.triedFallback) {
+            triviaImage.dataset.triedFallback = 'true';
+            triviaImage.src = currentSrc.replace('/images/', '/public/images/');
             return;
         }
         triviaImage.hidden = true;
@@ -138,7 +162,7 @@
         if (!Array.isArray(feedback) || feedback.length === 0) return;
         triviaResult.replaceChildren();
         const heading = document.createElement('h2');
-        heading.textContent = showCorrectAnswer ? 'Resultado de la trivia' : 'Explicacion de las respuestas';
+        heading.textContent = showCorrectAnswer ? 'Resultado de la trivia' : 'Detalle de la respuesta';
         triviaResult.appendChild(heading);
         feedback.forEach((item) => {
             const article = document.createElement('article');
@@ -161,23 +185,72 @@
         triviaResult.hidden = false;
     };
 
+    const updateCuriousView = () => {
+        if (!curiousSlides) return;
+        curiousSlides.replaceChildren();
+        if (curiousData.length === 0) return;
+
+        curiousData.forEach((item, index) => {
+            const card = document.createElement('article');
+            card.className = `curious-slide ${item.is_correct ? 'curious-slide--correct' : 'curious-slide--incorrect'}`;
+            if (index !== currentSlideIndex) {
+                card.hidden = true;
+            }
+
+            const q = document.createElement('div');
+            q.className = 'curious-slide__q';
+            q.textContent = `Pregunta ${index + 1}: ${item.question}`;
+            card.appendChild(q);
+
+            const ans = document.createElement('div');
+            ans.className = 'curious-slide__ans';
+            const selectedText = item.selected_answer || '';
+            const correctText = item.correct_answer || '';
+            if (item.is_correct) {
+                ans.innerHTML = `<strong>✓ Tu respuesta:</strong> ${escapeHtml(selectedText)} (¡Correcta!)`;
+            } else {
+                ans.innerHTML = `<strong>✗ Tu respuesta:</strong> ${escapeHtml(selectedText)} <br><strong>✓ Respuesta correcta:</strong> ${escapeHtml(correctText)}`;
+            }
+            card.appendChild(ans);
+
+            if (item.explanation) {
+                const exp = document.createElement('div');
+                exp.className = 'curious-slide__exp';
+                exp.innerHTML = `💡 <strong>Dato curioso:</strong> ${escapeHtml(item.explanation)}`;
+                card.appendChild(exp);
+            }
+
+            curiousSlides.appendChild(card);
+        });
+
+        if (curiousCounter) {
+            curiousCounter.textContent = `${currentSlideIndex + 1} / ${curiousData.length}`;
+        }
+        if (curiousPrev) curiousPrev.disabled = currentSlideIndex === 0;
+        if (curiousNext) curiousNext.disabled = currentSlideIndex === curiousData.length - 1;
+    };
+
+    const renderCuriousModal = (feedback, scoreText) => {
+        curiousData = feedback || [];
+        currentSlideIndex = 0;
+        if (curiousScore) curiousScore.textContent = scoreText;
+        updateCuriousView();
+        openModal(curiousModal);
+    };
+
     const renderParticipation = (trivia) => {
         const participation = trivia.participation || {};
         const statusByCode = {
-            won: 'Ya acertaste la trivia de hoy.',
-            lost: 'Ya utilizaste tus dos intentos de hoy.',
-            second_attempt_available: 'El primer intento fallo. Puedes intentarlo una vez mas.',
+            played: 'Ya participaste en la trivia de hoy.',
             not_started: 'Identidad confirmada. Selecciona una respuesta por pregunta.',
         };
         setStatus(statusByCode[participation.status] || statusByCode.not_started);
-        const isClosed = participation.status === 'won' || participation.status === 'lost';
+        const isClosed = participation.status === 'played';
         triviaForm.hidden = isClosed;
         const submit = triviaForm.querySelector('button[type="submit"]');
         if (submit) {
             submit.disabled = false;
-            submit.textContent = participation.status === 'second_attempt_available'
-                ? 'Enviar segundo intento'
-                : 'Enviar respuestas';
+            submit.textContent = 'Enviar respuestas';
         }
     };
 
@@ -197,11 +270,29 @@
         recoveryInput.value = '';
         const isLogin = mode === 'login';
         identityDescription.textContent = isLogin
-            ? 'Escribe tu nickname y el codigo de acceso que recibiste al registrarte.'
-            : 'Crea un nickname nuevo para participar. Recibiras un codigo de acceso una sola vez.';
-        recoveryLabel.hidden = !isLogin;
-        recoveryInput.hidden = !isLogin;
-        recoveryInput.required = isLogin;
+            ? 'Escribe tu nickname y tu código de acceso (PIN de 6 dígitos o tu código anterior).'
+            : 'Crea tu nickname y define un código de acceso de 6 dígitos numéricos para ingresar siempre.';
+        recoveryLabel.textContent = isLogin ? 'Código de acceso' : 'Crea tu código de acceso (6 dígitos)';
+        recoveryLabel.hidden = false;
+        recoveryInput.hidden = false;
+        recoveryInput.required = true;
+        if (isLogin) {
+            recoveryInput.placeholder = 'Tu PIN de 6 dígitos o código';
+            recoveryInput.removeAttribute('maxlength');
+            recoveryInput.removeAttribute('pattern');
+            recoveryInput.type = 'password';
+            if (codeHint) {
+                codeHint.textContent = 'Ingresa tu PIN de 6 dígitos o el código que guardaste al registrarte.';
+            }
+        } else {
+            recoveryInput.placeholder = '6 dígitos numéricos (Ej: 123456)';
+            recoveryInput.maxLength = 6;
+            recoveryInput.setAttribute('pattern', '\\d{6}');
+            recoveryInput.inputMode = 'numeric';
+            if (codeHint) {
+                codeHint.textContent = 'Crea un código numérico de 6 dígitos para ingresar siempre con este nickname.';
+            }
+        }
         openModal(identityModal);
     };
 
@@ -260,7 +351,7 @@
             const participation = currentTrivia.participation || {};
             if (participation.status && participation.status !== 'not_started') {
                 renderParticipation(currentTrivia);
-                if (participation.status === 'won' || participation.status === 'lost') {
+                if (participation.status === 'played') {
                     triviaForm.hidden = true;
                     addRankingLink();
                 }
@@ -281,27 +372,32 @@
         playerMessage.textContent = '';
         const formData = new FormData(playerForm);
         const nickname = String(formData.get('nickname') || '').trim();
-        const code = String(formData.get('recovery_code') || '');
+        const code = String(formData.get('recovery_code') || '').trim();
         if (!nickname) {
             playerMessage.textContent = 'Escribe un nickname.';
+            return;
+        }
+        if (!code) {
+            playerMessage.textContent = 'Escribe tu código de acceso.';
+            return;
+        }
+        if (identityMode === 'register' && !/^\d{6}$/.test(code)) {
+            playerMessage.textContent = 'El código de acceso debe tener exactamente 6 dígitos numéricos.';
             return;
         }
         try {
             const payload = await request('/api/trivia/player', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nickname, recovery_code: code }),
+                body: JSON.stringify({ nickname, recovery_code: code, mode: identityMode }),
             });
             const player = payload.data || {};
             if (player.nickname) localStorage.setItem(nicknameStorageKey, player.nickname);
             await refreshCsrf();
-            if (player.recovery_code) {
-                recoveryCode.textContent = player.recovery_code;
-                closeModal(identityModal);
-                openModal(codeModal);
-                return;
-            }
             closeModal(identityModal);
+            if (player.created) {
+                showMessage('¡Cuenta registrada!', `Tu nickname "${escapeHtml(player.nickname)}" ha sido registrado. Recuerda siempre tu código de acceso de 6 dígitos.`);
+            }
             await loadTrivia();
         } catch (error) {
             playerMessage.textContent = error.message;
@@ -323,6 +419,30 @@
 
     document.querySelector('[data-close-message]').addEventListener('click', () => closeModal(messageModal));
 
+    if (curiousPrev) {
+        curiousPrev.addEventListener('click', () => {
+            if (currentSlideIndex > 0) {
+                currentSlideIndex--;
+                updateCuriousView();
+            }
+        });
+    }
+
+    if (curiousNext) {
+        curiousNext.addEventListener('click', () => {
+            if (currentSlideIndex < curiousData.length - 1) {
+                currentSlideIndex++;
+                updateCuriousView();
+            }
+        });
+    }
+
+    if (closeCurious) {
+        closeCurious.addEventListener('click', () => {
+            closeModal(curiousModal);
+        });
+    }
+
     triviaForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!currentTrivia?.player?.authenticated) {
@@ -342,25 +462,18 @@
                 body: JSON.stringify({ trivia_id: currentTrivia.id, answers }),
             });
             const result = payload.data || {};
-            renderFeedback(result.feedback, result.status === 'lost');
-            const statusMessage = result.status === 'second_attempt_available'
-                ? 'El primer intento fallo. Tienes un segundo intento disponible.'
-                : result.status === 'won'
-                    ? 'Respuesta correcta. Tu participacion de hoy ha terminado.'
-                    : 'Fallaste los dos intentos disponibles para hoy.';
-            setStatus(`${statusMessage} Puntos: ${result.points}.`);
-            if (result.status === 'second_attempt_available') {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Enviar segundo intento';
-            } else {
-                triviaForm.hidden = true;
-                addRankingLink();
-            }
-            renderModalFeedback(result.feedback, result.status === 'lost');
-            showMessage('Resultado de la trivia', `${statusMessage} Puntos obtenidos: ${result.points}.`);
+            const correctCount = result.correct_count ?? 0;
+            const points = result.points ?? 0;
+            const statusMessage = `¡Acertaste ${correctCount} de ${result.total_questions || 3} preguntas! Ganaste ${points} ${points === 1 ? 'punto' : 'puntos'}.`;
+            
+            setStatus(`Participación registrada. ${statusMessage}`);
+            triviaForm.hidden = true;
+            addRankingLink();
+            
+            renderFeedback(result.feedback, true);
+            renderCuriousModal(result.feedback, statusMessage);
         } catch (error) {
             submitButton.disabled = false;
-            renderModalFeedback([], false);
             setStatus(error.message, true);
             showMessage('No se pudo registrar', error.message);
         }

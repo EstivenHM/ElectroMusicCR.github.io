@@ -15,7 +15,6 @@ final class AdminRepository
     public function dashboard(): array
     {
         $warnings = [];
-        $this->ensureSettingsTable();
 
         return [
             'news' => $this->queryList(
@@ -30,19 +29,46 @@ final class AdminRepository
                 'eventos',
                 $warnings
             ),
-            'trivia' => $this->trivia($warnings),
+            'triviaSettings' => $this->triviaSettings(),
+            'trivias' => $this->trivias($warnings),
             'warnings' => $warnings,
         ];
     }
 
-    private function queryList(string $query, string $section, array &$warnings): array
+    public function updateTriviaSettings(string $title, string $description, ?string $imagePath, int $userId): array
     {
-        try {
-            return $this->connection->query($query)->fetchAll();
-        } catch (\Throwable $exception) {
-            $warnings[] = sprintf('No se pudo cargar %s. Verifica la migración administrativa correspondiente.', $section);
-            return [];
+        $this->ensureSettingsTable();
+        $existing = $this->connection->query(
+            'SELECT image_path FROM trivia_settings WHERE id = 1'
+        )->fetch();
+        $storedImage = $imagePath ?? ($existing['image_path'] ?? null);
+
+        $statement = $this->connection->prepare(
+            'INSERT INTO trivia_settings (id, title, description, image_path, updated_by)
+             VALUES (1, :title, :description, :image_path, :updated_by)
+             ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description),
+             image_path = VALUES(image_path), updated_by = VALUES(updated_by)'
+        );
+        $statement->execute([
+            'title' => $title,
+            'description' => $description,
+            'image_path' => $storedImage,
+            'updated_by' => $userId,
+        ]);
+
+        return ['updated' => true];
+    }
+
+    private function triviaSettings(): array
+    {
+        $settings = $this->connection->query(
+            'SELECT title, description, image_path FROM trivia_settings WHERE id = 1'
+        )->fetch();
+        if ($settings === false) {
+            return ['title' => '', 'description' => '', 'image_path' => null];
         }
+        $settings['image_path'] = $this->normalizeImagePath($settings['image_path'] ?? null);
+        return $settings;
     }
 
     private function ensureSettingsTable(): void
@@ -59,6 +85,59 @@ final class AdminRepository
                 CONSTRAINT fk_trivia_settings_updated_by FOREIGN KEY (updated_by) REFERENCES users (id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+    }
+
+    private function queryList(string $query, string $section, array &$warnings): array
+    {
+        try {
+            return $this->connection->query($query)->fetchAll();
+        } catch (\Throwable $exception) {
+            $warnings[] = sprintf('No se pudo cargar %s. Verifica la migración administrativa correspondiente.', $section);
+            return [];
+        }
+    }
+
+    public function triviaById(int $triviaId): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT id, title, description, image_path, scheduled_date, starts_at, ends_at, status
+             FROM trivia WHERE id = :id LIMIT 1'
+        );
+        $statement->execute(['id' => $triviaId]);
+        $trivia = $statement->fetch();
+        if ($trivia === false) {
+            return null;
+        }
+        $trivia['image_path'] = $this->normalizeImagePath($trivia['image_path'] ?? null);
+
+        $questions = $this->connection->prepare(
+            'SELECT id, question_text AS text, explanation, points, position
+             FROM trivia_questions WHERE trivia_id = :trivia_id ORDER BY position'
+        );
+        $questions->execute(['trivia_id' => $triviaId]);
+        $trivia['questions'] = $questions->fetchAll();
+        foreach ($trivia['questions'] as &$question) {
+            $options = $this->connection->prepare(
+                'SELECT id, option_text AS text, is_correct AS correct, position
+                 FROM trivia_options WHERE question_id = :question_id ORDER BY position'
+            );
+            $options->execute(['question_id' => $question['id']]);
+            $question['options'] = $options->fetchAll();
+        }
+        unset($question);
+
+        return $trivia;
+    }
+
+    private function normalizeImagePath(?string $imagePath): ?string
+    {
+        if (!is_string($imagePath) || $imagePath === '') {
+            return null;
+        }
+        if (preg_match('/(?:\/|^)([a-f0-9]{32}\.(?:jpg|png|webp))$/i', $imagePath, $matches)) {
+            return '/public/images/trivia/' . strtolower($matches[1]);
+        }
+        return $imagePath;
     }
 
     public function createNews(string $title, string $description, ?string $imagePath, string $status, int $userId): array
@@ -165,115 +244,35 @@ final class AdminRepository
         $statement->execute(['id' => $id]);
     }
 
-    public function saveTrivia(array $trivia, int $userId): array
-    {
-        $this->connection->beginTransaction();
-        try {
-            $triviaId = (int) ($trivia['id'] ?? 0);
-            if ($triviaId > 0) {
-                $statement = $this->connection->prepare(
-                    'UPDATE trivia SET title = :title, scheduled_date = :scheduled_date,
-                     starts_at = :starts_at, ends_at = :ends_at, status = :status WHERE id = :id'
-                );
-                $statement->execute([
-                    'id' => $triviaId,
-                    'title' => $trivia['title'],
-                    'scheduled_date' => $trivia['scheduled_date'],
-                    'starts_at' => $trivia['starts_at'],
-                    'ends_at' => $trivia['ends_at'] ?: null,
-                    'status' => $trivia['status'],
-                ]);
-                $this->connection->prepare('DELETE FROM trivia_questions WHERE trivia_id = :id')->execute(['id' => $triviaId]);
-            } else {
-                $statement = $this->connection->prepare(
-                    'INSERT INTO trivia (title, scheduled_date, starts_at, ends_at, status, created_by)
-                     VALUES (:title, :scheduled_date, :starts_at, :ends_at, :status, :created_by)'
-                );
-                $statement->execute([
-                    'title' => $trivia['title'],
-                    'scheduled_date' => $trivia['scheduled_date'],
-                    'starts_at' => $trivia['starts_at'],
-                    'ends_at' => $trivia['ends_at'] ?: null,
-                    'status' => $trivia['status'],
-                    'created_by' => $userId,
-                ]);
-                $triviaId = (int) $this->connection->lastInsertId();
-            }
-
-            $questionStatement = $this->connection->prepare(
-                'INSERT INTO trivia_questions (trivia_id, question_text, explanation, question_date, points, position)
-                 VALUES (:trivia_id, :question_text, :explanation, :question_date, :points, :position)'
-            );
-            $optionStatement = $this->connection->prepare(
-                'INSERT INTO trivia_options (question_id, option_text, is_correct, position)
-                 VALUES (:question_id, :option_text, :is_correct, :position)'
-            );
-            foreach ($trivia['questions'] as $position => $question) {
-                $questionStatement->execute([
-                    'trivia_id' => $triviaId,
-                    'question_text' => $question['text'],
-                    'explanation' => $question['explanation'] ?? null,
-                    'question_date' => $trivia['scheduled_date'],
-                    'points' => $question['points'],
-                    'position' => $position + 1,
-                ]);
-                $questionId = (int) $this->connection->lastInsertId();
-                foreach ($question['options'] as $optionPosition => $option) {
-                    $optionStatement->execute([
-                        'question_id' => $questionId,
-                        'option_text' => $option['text'],
-                        'is_correct' => $option['correct'] ? 1 : 0,
-                        'position' => $optionPosition + 1,
-                    ]);
-                }
-            }
-            $this->connection->commit();
-            return ['id' => $triviaId];
-        } catch (\Throwable $exception) {
-            $this->connection->rollBack();
-            throw $exception;
-        }
-    }
-
-    private function trivia(array &$warnings): ?array
+    private function trivias(array &$warnings): array
     {
         try {
-            $statement = $this->connection->query(
-                'SELECT trivia.id, settings.title, settings.description,
-                        settings.image_path, trivia.scheduled_date, trivia.starts_at, trivia.ends_at, trivia.status
+            $trivias = $this->connection->query(
+                'SELECT trivia.id, trivia.title, trivia.description, trivia.image_path,
+                    trivia.scheduled_date, trivia.starts_at,
+                        trivia.ends_at, trivia.status,
+                        COUNT(DISTINCT questions.id) AS question_count,
+                        COUNT(DISTINCT submissions.id) AS submission_count
                  FROM trivia
-                 LEFT JOIN trivia_settings settings ON settings.id = 1
-                 ORDER BY trivia.scheduled_date DESC LIMIT 1'
-            );
-            $trivia = $statement->fetch();
-            if (!$trivia) {
-                $settings = $this->connection->query(
-                    'SELECT 0 AS id, title, description, image_path, NULL AS scheduled_date,
-                            NULL AS starts_at, NULL AS ends_at, "draft" AS status
-                     FROM trivia_settings WHERE id = 1'
-                )->fetch();
-                return $settings ?: null;
+                 LEFT JOIN trivia_questions questions ON questions.trivia_id = trivia.id
+                 LEFT JOIN trivia_submissions submissions ON submissions.trivia_id = trivia.id
+                 GROUP BY trivia.id
+                 ORDER BY trivia.scheduled_date DESC, trivia.starts_at DESC, trivia.id DESC'
+            )->fetchAll();
+            $now = new \DateTimeImmutable('now', new \DateTimeZone('America/Costa_Rica'));
+            foreach ($trivias as &$trivia) {
+                $trivia['question_count'] = (int) $trivia['question_count'];
+                $trivia['submission_count'] = (int) $trivia['submission_count'];
+                $startsAt = new \DateTimeImmutable((string) $trivia['starts_at'], new \DateTimeZone('America/Costa_Rica'));
+                $isFuture = $startsAt > $now;
+                $trivia['is_future'] = $isFuture;
+                $trivia['can_edit'] = $isFuture && $trivia['submission_count'] === 0;
             }
-
-            $questions = $this->connection->prepare(
-                'SELECT id, question_text AS text, explanation, points, position FROM trivia_questions
-                 WHERE trivia_id = :trivia_id ORDER BY position'
-            );
-            $questions->execute(['trivia_id' => $trivia['id']]);
-            $trivia['questions'] = $questions->fetchAll();
-            foreach ($trivia['questions'] as &$question) {
-                $options = $this->connection->prepare(
-                    'SELECT id, option_text AS text, is_correct AS correct, position FROM trivia_options
-                     WHERE question_id = :question_id ORDER BY position'
-                );
-                $options->execute(['question_id' => $question['id']]);
-                $question['options'] = $options->fetchAll();
-            }
-
-            return $trivia;
+            unset($trivia);
+            return $trivias;
         } catch (\Throwable $exception) {
-            $warnings[] = 'No se pudo cargar la trivia. Verifica las migraciones de trivia.';
-            return null;
+            $warnings[] = 'No se pudo cargar el listado de trivias. Verifica las migraciones de trivia.';
+            return [];
         }
     }
 }

@@ -43,15 +43,38 @@
         title.textContent = settings.title || 'Ranking de Trivia';
         description.textContent = settings.description || '';
         description.hidden = !settings.description;
-        if (settings.image_path) {
-            image.src = settings.image_path;
+        delete image.dataset.triedFallback;
+        if (settings.image_path && typeof settings.image_path === 'string' && settings.image_path.trim() !== '') {
+            let path = settings.image_path.trim();
+            if (!path.startsWith('/') && !path.startsWith('http')) {
+                path = '/' + path;
+            }
+            image.src = path;
             image.alt = settings.title || 'Imagen de trivia';
             image.hidden = false;
         } else {
+            image.removeAttribute('src');
             image.hidden = true;
         }
         header.hidden = false;
     };
+
+    if (image) {
+        image.addEventListener('error', () => {
+            const currentSrc = image.getAttribute('src') || '';
+            if (currentSrc.includes('/public/images/') && !image.dataset.triedFallback) {
+                image.dataset.triedFallback = 'true';
+                image.src = currentSrc.replace('/public/images/', '/images/');
+                return;
+            }
+            if (currentSrc.includes('/images/') && !image.dataset.triedFallback) {
+                image.dataset.triedFallback = 'true';
+                image.src = currentSrc.replace('/images/', '/public/images/');
+                return;
+            }
+            image.hidden = true;
+        });
+    }
 
     const render = (payload) => {
         renderHeader(payload.settings);
@@ -59,10 +82,13 @@
         if (!timerInterval) {
             timerInterval = setInterval(updateCountdown, 60000);
         }
-        rows.replaceChildren();
-        payload.items.forEach((item) => {
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        items.forEach((item, index) => {
             const row = document.createElement('tr');
-            [item.position, item.nickname, item.points].forEach((value) => {
+            const pos = item.position ?? (index + 1);
+            const nick = item.nickname ?? '';
+            const pts = item.points ?? 0;
+            [pos, nick, pts].forEach((value) => {
                 const cell = document.createElement('td');
                 cell.textContent = String(value);
                 row.appendChild(cell);
@@ -70,10 +96,10 @@
             rows.appendChild(row);
         });
         pagination.hidden = false;
-        pageLabel.textContent = `Pagina ${payload.page}`;
-        previous.disabled = payload.page <= 1;
-        next.disabled = payload.items.length < payload.limit;
-        setStatus(payload.items.length ? '' : 'Todavia no hay participantes en el ranking.');
+        pageLabel.textContent = `Pagina ${payload.page || 1}`;
+        previous.disabled = (payload.page || 1) <= 1;
+        next.disabled = items.length < (payload.limit || 20);
+        setStatus(items.length ? '' : 'Todavia no hay participantes en el ranking.');
     };
 
     const load = async () => {

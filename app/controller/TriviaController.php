@@ -58,11 +58,11 @@ final class TriviaController
         try {
             Response::json(['data' => $this->playerService->authenticate(
                 trim((string) ($payload['nickname'] ?? '')),
-                (string) ($payload['recovery_code'] ?? '')
+                (string) ($payload['recovery_code'] ?? ''),
+                (string) ($payload['mode'] ?? 'register')
             )]);
         } catch (Throwable $exception) {
-            error_log($exception->getMessage());
-            Response::json(['error' => 'No fue posible validar la identidad.'], 422);
+            Response::json(['error' => $exception->getMessage() ?: 'No fue posible validar la identidad.'], 422);
         }
     }
 

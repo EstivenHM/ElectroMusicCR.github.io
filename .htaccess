@@ -8,12 +8,13 @@ DirectoryIndex index.php default.php
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
     # Enrutamiento de las paginas y endpoints de la aplicacion.
+    RewriteRule ^countdown/?$ public/index.php [L,QSA]
     RewriteRule ^admin(?:/.*)?/?$ public/index.php [L,QSA]
     RewriteRule ^api/admin(?:/.*)?/?$ public/index.php [L,QSA]
-    RewriteRule ^(trivia|ranking)/?$ public/index.php [L,QSA]
+    RewriteRule ^(trivia|ranking|eventos)/?$ public/index.php [L,QSA]
     RewriteRule ^images/trivia/([a-f0-9]{32}\.(?:jpg|png|webp))$ public/images/trivia/$1 [L,NC]
     RewriteRule ^media/trivia/[a-f0-9]{32}$ public/index.php [L,QSA,NC]
-    RewriteRule ^api/(ranking|csrf|trivia/(current|player|submissions))/?$ public/index.php [L,QSA]
+    RewriteRule ^api/(ranking|csrf|trivia/(current|player|submissions)|rating)/?$ public/index.php [L,QSA]
 </IfModule>
 
 # Deshabilitar listado de directorios

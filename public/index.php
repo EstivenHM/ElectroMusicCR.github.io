@@ -4,7 +4,31 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/bootstrap/autoload.php';
 
+if (function_exists('set_time_limit')) {
+    @set_time_limit(25);
+}
+
+// ============================================================================
+// MODO MANTENIMIENTO:
+// - Cambia $maintenanceMode = true; para activar la pantalla temporal.
+// - O crea un archivo vacío llamado "maintenance.flag" en la raíz del proyecto.
+// - El acceso a /admin permanece activo para que puedas probar o administrar.
+// ============================================================================
+$maintenanceMode = false;
+
+if ($maintenanceMode || file_exists(dirname(__DIR__) . '/maintenance.flag')) {
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $isBypass = str_starts_with($currentPath, '/admin') || str_starts_with($currentPath, '/api/admin');
+    if (!$isBypass) {
+        http_response_code(503);
+        header('Retry-After: 300');
+        require_once dirname(__DIR__) . '/app/resources/views/maintenance.php';
+        exit;
+    }
+}
+
 use App\Controller\HomeController;
+use App\Controller\EventosController;
 use App\Controller\RankingController;
 use App\Controller\TriviaController;
 use App\Controller\AuthController;
@@ -20,7 +44,9 @@ use App\Services\AuthService;
 use App\Services\TriviaService;
 use App\Services\TriviaPlayerService;
 use App\Services\HomeService;
+use App\Services\EventosService;
 use Config\DatabaseManager;
+use App\Controller\CountdownController;
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
@@ -123,6 +149,13 @@ if ($isApiRequest) {
         }
     }
 
+    // Ruta de calificaciones de la página
+    if (rtrim($path, '/') === '/api/rating') {
+        // El RatingController se instancia en routes/api.php directamente
+        // sin dependencias externas (crea su propia conexión).
+        // Solo necesitamos asegurar que cae en el flujo API.
+    }
+
     $route = require dirname(__DIR__) . '/routes/api.php';
     $route($rankingController, $triviaController, $adminController);
 }
@@ -151,5 +184,26 @@ if (rtrim($path, '/') === '/' || rtrim($path, '/') === '') {
     }
 }
 
+
+$countdownController = null;
+
+if (rtrim($path, '/') === '/countdown') {
+    $countdownController = new CountdownController();
+}
+
+$eventosController = null;
+if (rtrim($path, '/') === '/eventos') {
+    try {
+        $eventosController = new EventosController(
+            new EventosService(new HomeRepository(DatabaseManager::connection()))
+        );
+    } catch (Throwable $exception) {
+        error_log($exception->getMessage());
+        http_response_code(503);
+        echo 'El servicio no está disponible.';
+        exit;
+    }
+}
+
 $route = require dirname(__DIR__) . '/routes/web.php';
-$route($homeController, $rankingController, $triviaController, $authController, $adminController);
+$route($homeController, $rankingController, $triviaController, $authController, $adminController, $countdownController, $eventosController);

@@ -8,9 +8,10 @@ declare(strict_types=1);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Trivia diaria de ElectroMusicCR.">
     <title>Trivia | ElectroMusicCR</title>
-    <link rel="stylesheet" href="/public/css/main.css">
+    <link rel="stylesheet" href="/public/css/main.css?v=<?php echo filemtime(__DIR__ . '/../../../public/css/main.css'); ?>">
+    <link rel="stylesheet" href="/public/css/rating-widget.css">
     <script src="/public/js/main.js" defer></script>
-    <script src="/public/js/trivia.js" defer></script>
+    <script src="/public/js/trivia.js?v=<?php echo filemtime(__DIR__ . '/../../../public/js/trivia.js'); ?>" defer></script>
 </head>
 <body>
 <header class="site-header">
@@ -61,9 +62,10 @@ declare(strict_types=1);
         </div>
         <form data-player-form novalidate hidden>
             <label for="nickname">Nickname</label>
-            <input id="nickname" name="nickname" type="text" maxlength="40" autocomplete="nickname" required>
-            <label for="recovery-code" data-recovery-label>Codigo de acceso</label>
-            <input id="recovery-code" name="recovery_code" type="password" maxlength="128" autocomplete="one-time-code">
+            <input id="nickname" name="nickname" type="text" maxlength="40" autocomplete="nickname" placeholder="Tu apodo de jugador" required>
+            <label for="recovery-code" data-recovery-label>Código de acceso (6 dígitos)</label>
+            <input id="recovery-code" name="recovery_code" type="password" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" placeholder="6 dígitos numéricos" required>
+            <small style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--color-muted, #94a3b8); font-size:0.85rem;" data-code-hint>Crea un código numérico de 6 dígitos para ingresar siempre con este nickname.</small>
             <div class="app-modal__actions">
                 <button class="button button--ghost" type="button" data-back-identity>Volver</button>
                 <button class="button button--primary" type="submit">Continuar</button>
@@ -88,5 +90,25 @@ declare(strict_types=1);
         <button class="button button--primary" type="button" data-close-message>Continuar</button>
     </div>
 </dialog>
+<dialog class="app-modal app-modal--curious" data-curious-modal aria-labelledby="curious-modal-title">
+    <div class="app-modal__content curious-modal__content">
+        <header class="curious-modal__header">
+            <h2 id="curious-modal-title" data-curious-title>Resultado de la Trivia</h2>
+            <p data-curious-score class="curious-modal__score"></p>
+        </header>
+        <div class="curious-slides" data-curious-slides></div>
+        <footer class="curious-modal__footer">
+            <div class="curious-nav">
+                <button class="button button--ghost" type="button" data-curious-prev>← Anterior</button>
+                <span class="curious-nav__counter" data-curious-counter>1 / 3</span>
+                <button class="button button--ghost" type="button" data-curious-next>Siguiente →</button>
+            </div>
+            <div class="curious-modal__actions">
+                <button class="button button--primary" type="button" data-close-curious>Continuar</button>
+            </div>
+        </footer>
+    </div>
+</dialog>
+<script src="/public/js/rating-widget.js" defer></script>
 </body>
 </html>

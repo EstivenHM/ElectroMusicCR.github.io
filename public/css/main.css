@@ -712,7 +712,7 @@ img {
 
 .trivia-intro {
   display: grid;
-  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: center;
   margin: 1rem 0 1.5rem;
@@ -1007,7 +1007,102 @@ img {
   }
 
   .ranking-header img {
-    max-width: 16rem;
-    margin: 0 auto;
-  }
+     max-width: 16rem;
+     margin: 0 auto;
+   }
 }
+
+.settings-image-preview {
+   max-width: 100%;
+   max-height: 200px;
+   object-fit: cover;
+   border: 1px solid var(--border);
+   border-radius: var(--radius, 4px);
+   display: block;
+   margin: 0.5rem 0;
+}
+
+.admin-help {
+   color: var(--muted);
+   font-size: 0.85rem;
+   font-style: italic;
+}
+
+.app-modal--curious {
+  width: min(36rem, calc(100% - 2rem));
+}
+
+.curious-modal__header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.curious-modal__score {
+  margin: 0.35rem 0 0;
+  color: var(--accent-2);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.curious-slides {
+  display: grid;
+  gap: 1rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.curious-slide {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border-left: 4px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.curious-slide--correct {
+  border-left-color: var(--accent-2);
+}
+
+.curious-slide--incorrect {
+  border-left-color: #ffb4a8;
+}
+
+.curious-slide__q {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.curious-slide__ans {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.curious-slide__exp {
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.curious-modal__footer {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.curious-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.curious-nav__counter {
+  font-weight: 700;
+  color: var(--muted);
+}
+

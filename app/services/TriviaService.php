@@ -36,10 +36,13 @@ final class TriviaService
         );
     }
 
-    public function save(array $trivia, int $userId, ?string $imagePath): array
+    public function save(array $trivia, int $userId, ?string $imagePath = null): array
     {
-        $now = new DateTimeImmutable('now', new DateTimeZone('America/Costa_Rica'));
-        $trivia['scheduled_date'] = $now->format('Y-m-d');
+        $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $trivia['starts_at'], new DateTimeZone('America/Costa_Rica'));
+        if (!$start || $start->format('Y-m-d H:i:s') !== $trivia['starts_at']) {
+            throw new \RuntimeException('La fecha de inicio no es válida.');
+        }
+        $trivia['scheduled_date'] = $start->format('Y-m-d');
 
         return $this->repository->saveAdmin($trivia, $userId, $imagePath);
     }

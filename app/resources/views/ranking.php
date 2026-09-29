@@ -8,9 +8,10 @@ declare(strict_types=1);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Ranking global de ElectroMusicCR.">
     <title>Ranking | ElectroMusicCR</title>
-    <link rel="stylesheet" href="/public/css/main.css">
+    <link rel="stylesheet" href="/public/css/main.css?v=<?php echo filemtime(__DIR__ . '/../../../public/css/main.css'); ?>">
+    <link rel="stylesheet" href="/public/css/rating-widget.css">
     <script src="/public/js/main.js" defer></script>
-    <script src="/public/js/ranking.js" defer></script>
+    <script src="/public/js/ranking.js?v=<?php echo filemtime(__DIR__ . '/../../../public/js/ranking.js'); ?>" defer></script>
 </head>
 <body>
 <header class="site-header">
@@ -27,6 +28,7 @@ declare(strict_types=1);
             <a href="/">Inicio</a>
             <a href="/trivia">Trivia</a>
             <a class="nav-link--accent" href="/ranking" aria-current="page">Ranking</a>
+            <a class="nav-link--accent" href="/countdown" aria-current="page">Cuenta regresiva</a>
         </nav>
     </div>
 </header>
@@ -57,5 +59,6 @@ declare(strict_types=1);
         </section>
     </div>
 </main>
+<script src="/public/js/rating-widget.js" defer></script>
 </body>
 </html>

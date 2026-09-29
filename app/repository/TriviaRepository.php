@@ -16,10 +16,10 @@ final class TriviaRepository
 
     public function findCurrent(string $dateTime, string $date, ?int $playerId = null): ?array
     {
-        $this->ensureSettingsTable();
         $statement = $this->connection->prepare(
-            'SELECT trivia.id, COALESCE(settings.title, trivia.title) AS title,
-                    COALESCE(settings.description, "") AS description, settings.image_path,
+            'SELECT trivia.id, COALESCE(NULLIF(settings.title, ""), trivia.title) AS title,
+                    COALESCE(NULLIF(settings.description, ""), trivia.description) AS description,
+                    COALESCE(NULLIF(settings.image_path, ""), trivia.image_path) AS image_path,
                     trivia.starts_at, trivia.ends_at
              FROM trivia
              LEFT JOIN trivia_settings settings ON settings.id = 1
@@ -41,9 +41,11 @@ final class TriviaRepository
             return null;
         }
 
-        if (is_string($trivia['image_path'] ?? null) && preg_match('/(?:\/|^)([a-f0-9]{32}\.(?:jpg|png|webp))$/i', $trivia['image_path'], $matches)) {
-            $filename = strtolower($matches[1]);
-            $trivia['image_path'] = '/public/images/trivia/' . $filename;
+        if (is_string($trivia['image_path'] ?? null) && trim($trivia['image_path']) !== '') {
+            $imagePath = trim($trivia['image_path']);
+            if (preg_match('/(?:\/|^)([^\/]+\.(?:jpg|jpeg|png|webp|gif|svg))$/i', $imagePath, $matches)) {
+                $trivia['image_path'] = '/public/images/trivia/' . strtolower($matches[1]);
+            }
         }
 
         $questions = $this->connection->prepare(
@@ -77,7 +79,7 @@ final class TriviaRepository
         $trivia['participation'] = [
             'status' => 'not_started',
             'attempts_used' => 0,
-            'attempts_remaining' => 2,
+            'attempts_remaining' => 1,
             'points' => 0,
         ];
         $trivia['player'] = ['authenticated' => false];
@@ -99,13 +101,7 @@ final class TriviaRepository
 
             $participation = $this->connection->prepare(
                 'SELECT COUNT(*) AS attempts_used,
-                        COALESCE(SUM(submission.points_total), 0) AS points,
-                        COALESCE(MAX(CASE WHEN submission.id IS NOT NULL
-                            AND NOT EXISTS (
-                                SELECT 1 FROM trivia_attempts failed_attempt
-                                WHERE failed_attempt.submission_id = submission.id
-                                  AND failed_attempt.is_correct = 0
-                            ) THEN 1 ELSE 0 END), 0) AS has_won
+                        COALESCE(SUM(submission.points_total), 0) AS points
                  FROM trivia_submissions submission
                  WHERE submission.trivia_id = :trivia_id
                    AND submission.player_id = :player_id
@@ -118,11 +114,11 @@ final class TriviaRepository
             ]);
             $state = $participation->fetch() ?: [];
             $attemptsUsed = (int) ($state['attempts_used'] ?? 0);
-            $hasWon = (int) ($state['has_won'] ?? 0) === 1;
+            $hasPlayed = $attemptsUsed >= 1;
             $trivia['participation'] = [
-                'status' => $hasWon ? 'won' : ($attemptsUsed >= 2 ? 'lost' : ($attemptsUsed === 1 ? 'second_attempt_available' : 'not_started')),
+                'status' => $hasPlayed ? 'played' : 'not_started',
                 'attempts_used' => $attemptsUsed,
-                'attempts_remaining' => max(0, 2 - $attemptsUsed),
+                'attempts_remaining' => max(0, 1 - $attemptsUsed),
                 'points' => (int) ($state['points'] ?? 0),
             ];
         }
@@ -130,40 +126,41 @@ final class TriviaRepository
         return $trivia;
     }
 
-    public function saveAdmin(array $trivia, int $userId, ?string $imagePath): array
+    public function saveAdmin(array $trivia, int $userId, ?string $imagePath = null): array
     {
         $this->ensureSettingsTable();
         $this->connection->beginTransaction();
         try {
-            $settings = $this->connection->query(
-                'SELECT title, description, image_path FROM trivia_settings WHERE id = 1'
-            )->fetch() ?: [];
-            $title = trim((string) ($settings['title'] ?? $trivia['title'] ?? ''));
-            $description = (string) ($settings['description'] ?? $trivia['description'] ?? '');
-            $storedImage = $imagePath ?? ($settings['image_path'] ?? null);
-
-            $settingsStatement = $this->connection->prepare(
-                'INSERT INTO trivia_settings (id, title, description, image_path, updated_by)
-                 VALUES (1, :title, :description, :image_path, :updated_by)
-                 ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description),
-                 image_path = VALUES(image_path), updated_by = VALUES(updated_by)'
-            );
-            $settingsStatement->execute([
-                'title' => $title,
-                'description' => $description,
-                'image_path' => $storedImage,
-                'updated_by' => $userId,
-            ]);
-
             $triviaId = (int) ($trivia['id'] ?? 0);
             if ($triviaId > 0) {
+                $existing = $this->connection->prepare(
+                    'SELECT starts_at, status,
+                            EXISTS (SELECT 1 FROM trivia_submissions WHERE trivia_id = trivia.id) AS has_submissions
+                     FROM trivia WHERE id = :id FOR UPDATE'
+                );
+                $existing->execute(['id' => $triviaId]);
+                $current = $existing->fetch();
+                if ($current === false) {
+                    throw new RuntimeException('La trivia seleccionada no existe.');
+                }
+                $now = new \DateTimeImmutable('now', new \DateTimeZone('America/Costa_Rica'));
+                $currentStart = new \DateTimeImmutable((string) $current['starts_at'], new \DateTimeZone('America/Costa_Rica'));
+                if ($currentStart <= $now) {
+                    throw new RuntimeException('Solo se pueden modificar trivias futuras que aún no están en período ni pasadas.');
+                }
+                if ((int) $current['has_submissions'] === 1) {
+                    throw new RuntimeException('No se pueden modificar trivias que ya tienen participaciones registradas.');
+                }
+                $newStart = new \DateTimeImmutable((string) $trivia['starts_at'], new \DateTimeZone('America/Costa_Rica'));
+                if ($newStart <= $now) {
+                    throw new RuntimeException('La fecha de inicio programada debe ser en el futuro.');
+                }
                 $statement = $this->connection->prepare(
-                    'UPDATE trivia SET title = :title, scheduled_date = :scheduled_date,
+                    'UPDATE trivia SET scheduled_date = :scheduled_date,
                      starts_at = :starts_at, ends_at = :ends_at, status = :status WHERE id = :id'
                 );
                 $statement->execute([
                     'id' => $triviaId,
-                    'title' => $title,
                     'scheduled_date' => $trivia['scheduled_date'],
                     'starts_at' => $trivia['starts_at'],
                     'ends_at' => $trivia['ends_at'] ?: null,
@@ -172,11 +169,13 @@ final class TriviaRepository
                 $this->connection->prepare('DELETE FROM trivia_questions WHERE trivia_id = :id')->execute(['id' => $triviaId]);
             } else {
                 $statement = $this->connection->prepare(
-                    'INSERT INTO trivia (title, scheduled_date, starts_at, ends_at, status, created_by)
-                     VALUES (:title, :scheduled_date, :starts_at, :ends_at, :status, :created_by)'
+                    'INSERT INTO trivia (title, description, image_path, scheduled_date, starts_at, ends_at, status, created_by)
+                     VALUES (:title, :description, :image_path, :scheduled_date, :starts_at, :ends_at, :status, :created_by)'
                 );
                 $statement->execute([
-                    'title' => $title,
+                    'title' => trim((string) ($trivia['title'] ?? '')),
+                    'description' => trim((string) ($trivia['description'] ?? '')),
+                    'image_path' => $imagePath,
                     'scheduled_date' => $trivia['scheduled_date'],
                     'starts_at' => $trivia['starts_at'],
                     'ends_at' => $trivia['ends_at'] ?: null,
@@ -187,8 +186,8 @@ final class TriviaRepository
             }
 
             $questionStatement = $this->connection->prepare(
-                'INSERT INTO trivia_questions (trivia_id, question_text, question_date, points, position)
-                 VALUES (:trivia_id, :question_text, :question_date, :points, :position)'
+                'INSERT INTO trivia_questions (trivia_id, question_text, explanation, question_date, points, position)
+                 VALUES (:trivia_id, :question_text, :explanation, :question_date, :points, :position)'
             );
             $optionStatement = $this->connection->prepare(
                 'INSERT INTO trivia_options (question_id, option_text, is_correct, position)
@@ -198,6 +197,7 @@ final class TriviaRepository
                 $questionStatement->execute([
                     'trivia_id' => $triviaId,
                     'question_text' => $question['text'],
+                    'explanation' => $question['explanation'] ?? null,
                     'question_date' => $trivia['scheduled_date'],
                     'points' => $question['points'],
                     'position' => $position + 1,
@@ -218,6 +218,7 @@ final class TriviaRepository
             if ($this->connection->inTransaction()) {
                 $this->connection->rollBack();
             }
+            error_log('saveAdmin exception: ' . $exception->getMessage() . ' in ' . $exception->getFile() . ':' . $exception->getLine());
             throw $exception;
         }
     }
@@ -236,6 +237,28 @@ final class TriviaRepository
                 CONSTRAINT fk_trivia_settings_updated_by FOREIGN KEY (updated_by) REFERENCES users (id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+    }
+
+    public function updateMetadata(int $triviaId, string $title, string $description, ?string $imagePath): array
+    {
+        $existing = $this->connection->prepare('SELECT image_path FROM trivia WHERE id = :id');
+        $existing->execute(['id' => $triviaId]);
+        $current = $existing->fetch();
+        if ($current === false) {
+            throw new RuntimeException('La trivia seleccionada no existe.');
+        }
+
+        $statement = $this->connection->prepare(
+            'UPDATE trivia SET title = :title, description = :description, image_path = :image_path WHERE id = :id'
+        );
+        $statement->execute([
+            'id' => $triviaId,
+            'title' => $title,
+            'description' => $description,
+            'image_path' => $imagePath ?? $current['image_path'],
+        ]);
+
+        return ['id' => $triviaId];
     }
 
     public function submit(int $triviaId, int $playerId, array $answers, string $dateTime, string $date): array
@@ -263,19 +286,12 @@ final class TriviaRepository
             if ($triviaStatement->fetch() === false) {
                 throw new RuntimeException('La trivia ya no está disponible.');
             }
-
-            $countStatement = $this->connection->prepare(
-                'SELECT COUNT(*) AS attempts_used,
-                        COALESCE(MAX(CASE WHEN submission.id IS NOT NULL
-                            AND NOT EXISTS (
-                                SELECT 1 FROM trivia_attempts failed_attempt
-                                WHERE failed_attempt.submission_id = submission.id
-                                  AND failed_attempt.is_correct = 0
-                            ) THEN 1 ELSE 0 END), 0) AS has_won
-                                 FROM trivia_submissions submission
-                                 WHERE submission.trivia_id = :trivia_id
-                                     AND submission.player_id = :player_id
-                                     AND submission.status = :status'
+            $countStatement = $this->connection->prepare(
+                'SELECT COUNT(*) AS attempts_used
+                 FROM trivia_submissions submission
+                 WHERE submission.trivia_id = :trivia_id
+                   AND submission.player_id = :player_id
+                   AND submission.status = :status'
             );
             $countStatement->execute([
                 'trivia_id' => $triviaId,
@@ -283,13 +299,10 @@ final class TriviaRepository
                 'status' => 'submitted',
             ]);
             $submissionState = $countStatement->fetch() ?: [];
-            if ((int) ($submissionState['has_won'] ?? 0) === 1) {
-                throw new RuntimeException('Ya acertaste esta trivia.');
+            if ((int) ($submissionState['attempts_used'] ?? 0) >= 1) {
+                throw new RuntimeException('Ya participaste en la trivia de hoy.');
             }
-            $attemptNumber = (int) ($submissionState['attempts_used'] ?? 0) + 1;
-            if ($attemptNumber > 2) {
-                throw new RuntimeException('Ya utilizaste los dos intentos disponibles.');
-            }
+            $attemptNumber = 1;
 
             $questions = $this->connection->prepare(
                 'SELECT q.id AS question_id, q.question_text, q.explanation, q.points,
@@ -300,16 +313,17 @@ final class TriviaRepository
             );
             $questions->execute(['trivia_id' => $triviaId]);
             $validOptions = [];
-            $questionPoints = [];
             $questionTexts = [];
             $questionExplanations = [];
             $correctOptionLabels = [];
+            $userOptionLabels = [];
             foreach ($questions->fetchAll() as $row) {
-                $validOptions[(int) $row['question_id']][(int) $row['option_id']] = (bool) $row['is_correct'];
-                $questionPoints[(int) $row['question_id']] = (int) $row['points'];
+                $isCorrectOption = (int) $row['is_correct'] === 1 || in_array($row['is_correct'], [1, '1', true, "\x01"], true);
+                $validOptions[(int) $row['question_id']][(int) $row['option_id']] = $isCorrectOption;
                 $questionTexts[(int) $row['question_id']] = (string) $row['question_text'];
                 $questionExplanations[(int) $row['question_id']] = trim((string) ($row['explanation'] ?? ''));
-                if ((bool) $row['is_correct']) {
+                $userOptionLabels[(int) $row['question_id']][(int) $row['option_id']] = (string) $row['option_text'];
+                if ($isCorrectOption) {
                     $correctOptionLabels[(int) $row['question_id']] = (string) $row['option_text'];
                 }
             }
@@ -320,7 +334,7 @@ final class TriviaRepository
 
             $results = [];
             $feedback = [];
-            $pointsTotal = 0;
+            $correctCount = 0;
             foreach ($answers as $questionId => $optionId) {
                 $questionId = (int) $questionId;
                 $optionId = (int) $optionId;
@@ -328,11 +342,14 @@ final class TriviaRepository
                     throw new RuntimeException('Una respuesta no pertenece a la trivia.');
                 }
                 $isCorrect = $validOptions[$questionId][$optionId];
-                $points = $isCorrect ? $questionPoints[$questionId] : 0;
-                $pointsTotal += $points;
-                $results[] = [$questionId, $optionId, $isCorrect, $points];
+                if ($isCorrect) {
+                    $correctCount++;
+                }
+                $results[] = [$questionId, $optionId, $isCorrect];
                 $feedback[] = [
                     'question' => $questionTexts[$questionId],
+                    'is_correct' => $isCorrect,
+                    'selected_answer' => $userOptionLabels[$questionId][$optionId] ?? '',
                     'correct_answer' => $correctOptionLabels[$questionId] ?? '',
                     'explanation' => $questionExplanations[$questionId],
                 ];
@@ -340,6 +357,13 @@ final class TriviaRepository
                     throw new RuntimeException('La trivia no tiene una respuesta correcta configurada.');
                 }
             }
+
+            $pointsTotal = match ($correctCount) {
+                3 => 5,
+                2 => 3,
+                1 => 1,
+                default => 0,
+            };
 
             $submission = $this->connection->prepare(
                 'INSERT INTO trivia_submissions (trivia_id, player_id, attempt_number, points_total)
@@ -358,34 +382,27 @@ final class TriviaRepository
                     (submission_id, question_id, selected_option_id, is_correct, points_awarded)
                  VALUES (:submission_id, :question_id, :selected_option_id, :is_correct, :points_awarded)'
             );
-            foreach ($results as [$questionId, $optionId, $isCorrect, $points]) {
+            foreach ($results as [$questionId, $optionId, $isCorrect]) {
                 $attempt->execute([
                     'submission_id' => $submissionId,
                     'question_id' => $questionId,
                     'selected_option_id' => $optionId,
                     'is_correct' => $isCorrect ? 1 : 0,
-                    'points_awarded' => $points,
+                    'points_awarded' => 0,
                 ]);
             }
 
             $this->connection->commit();
-            $isSuccessful = count(array_filter($results, static fn (array $result): bool => !$result[2])) === 0;
-            $response = [
-                'attempt_number' => $attemptNumber,
+
+            return [
+                'attempt_number' => 1,
                 'points' => $pointsTotal,
-                'is_correct' => $isSuccessful,
-                'status' => $isSuccessful ? 'won' : ($attemptNumber === 2 ? 'lost' : 'second_attempt_available'),
-                'attempts_remaining' => $isSuccessful || $attemptNumber === 2 ? 0 : 1,
+                'correct_count' => $correctCount,
+                'total_questions' => count($validOptions),
+                'status' => 'played',
+                'attempts_remaining' => 0,
+                'feedback' => $feedback,
             ];
-            if ($isSuccessful || $attemptNumber === 2) {
-                $response['feedback'] = $isSuccessful
-                    ? array_map(static fn (array $item): array => [
-                        'question' => $item['question'],
-                        'explanation' => $item['explanation'],
-                    ], $feedback)
-                    : $feedback;
-            }
-            return $response;
         } catch (Throwable $exception) {
             if ($this->connection->inTransaction()) {
                 $this->connection->rollBack();

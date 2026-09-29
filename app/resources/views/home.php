@@ -12,6 +12,7 @@ $events ??= [];
     <meta name="description" content="ElectroMusicCR: comunidad y grupo dedicado a la musica electronica en Costa Rica.">
     <title>ElectroMusicCR | Comunidad de musica electronica</title>
     <link rel="stylesheet" href="/public/css/main.css">
+    <link rel="stylesheet" href="/public/css/rating-widget.css">
     <script src="/public/js/main.js" defer></script>
 </head>
 <body>
@@ -76,7 +77,7 @@ $events ??= [];
             </div>
         </section>
 
-        <section id="agenda" class="section">
+        <!-- <section id="agenda" class="section">
             <div class="container split-layout">
                 <div>
                     <p class="eyebrow">Eventos de la comunidad</p>
@@ -85,7 +86,7 @@ $events ??= [];
                     Estos eventos son publicados y gestionados por la comunidad de ElectroMusicCR.</p>
                 </div>
             </div>
-        </section>
+        </section> -->
 
         <section id="eventos" class="section section--alt">
             <div class="container section-heading section-heading--split">
@@ -130,6 +131,9 @@ $events ??= [];
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
+            <div class="container" style="text-align: center; margin-top: 2.5rem;">
+                <a class="button button--primary" href="/eventos">Ver más eventos →</a>
+            </div>
         </section>
 
         <section id="contacto" class="section section--alt">
@@ -172,10 +176,11 @@ $events ??= [];
 
     <footer class="site-footer">
         <div class="container footer-inner">
-            <p>ElectroMusicCR - Sitio oficial para la comunidad. Todos los derechos reservados.</p>
-            <p>Beta 1.0</p>
+            <p>&copy; <?= date('Y') ?> ElectroMusicCR - Sitio oficial para la comunidad. Todos los derechos reservados.</p>
+            <p>Beta 1.3</p>
             <a href="#inicio">Volver al inicio</a>
         </div>
     </footer>
+    <script src="/public/js/rating-widget.js" defer></script>
 </body>
 </html>

@@ -146,7 +146,53 @@ final class AdminController
         $payload = $_POST;
         $payload['questions'] = json_decode((string) ($payload['questions'] ?? '[]'), true);
         try {
-            Response::json(['data' => $this->triviaService->save($this->validateTrivia($payload), (int) $user['id'], $this->upload('image'))]);
+            $validated = $this->validateTrivia($payload);
+            $result = $this->triviaService->save($validated, (int) $user['id'], $this->upload('image'));
+            Response::json(['data' => $result]);
+        } catch (Throwable $exception) {
+            error_log('Trivia save error: ' . $exception->getMessage() . ' in ' . $exception->getFile() . ':' . $exception->getLine());
+            Response::json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function trivia(int $triviaId): never
+    {
+        SessionManager::requireAdmin();
+        if ($triviaId < 1) {
+            Response::json(['error' => 'ID de trivia inválido.'], 422);
+        }
+        try {
+            $trivia = $this->repository->triviaById($triviaId);
+            if ($trivia === null) {
+                Response::json(['error' => 'La trivia no existe.'], 404);
+            }
+            $now = new \DateTimeImmutable('now', new \DateTimeZone('America/Costa_Rica'));
+            $start = new \DateTimeImmutable((string) $trivia['starts_at'], new \DateTimeZone('America/Costa_Rica'));
+            if ($start <= $now) {
+                Response::json(['error' => 'Solo se pueden editar trivias futuras que aún no están en período ni pasadas.'], 403);
+            }
+            Response::json(['data' => $trivia]);
+        } catch (Throwable $exception) {
+            Response::json(['error' => $exception->getMessage() ?: 'No se pudo cargar la trivia.'], 500);
+        }
+    }
+
+    public function updateTriviaMetadata(): never
+    {
+        $user = SessionManager::requireAdmin();
+        SessionManager::validateCsrf();
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+        if ($title === '') {
+            Response::json(['error' => 'El título de la trivia es obligatorio.'], 422);
+        }
+        try {
+            Response::json(['data' => $this->repository->updateTriviaSettings(
+                $title,
+                $description,
+                $this->upload('image'),
+                (int) $user['id']
+            )]);
         } catch (Throwable $exception) {
             Response::json(['error' => $exception->getMessage()], 422);
         }
@@ -223,17 +269,38 @@ final class AdminController
         if ((int) ($payload['id'] ?? 0) < 1 && trim((string) ($payload['title'] ?? '')) === '') {
             throw new \RuntimeException('La primera trivia necesita título.');
         }
-        if (count($questions) < 1 || trim((string) ($payload['starts_at'] ?? '')) === '') {
-            throw new \RuntimeException('La trivia necesita inicio y al menos una pregunta válida.');
+        $startsAt = str_replace('T', ' ', trim((string) ($payload['starts_at'] ?? '')));
+        $endsAt = str_replace('T', ' ', trim((string) ($payload['ends_at'] ?? '')));
+        $timezone = new \DateTimeZone('America/Costa_Rica');
+        $start = $this->parseTriviaDate($startsAt, $timezone);
+        $end = $endsAt === '' ? null : $this->parseTriviaDate($endsAt, $timezone);
+        if (count($questions) !== 3 || $start === null) {
+            throw new \RuntimeException('La trivia debe contener exactamente 3 preguntas válidas con 4 opciones cada una y fecha de inicio.');
         }
+        if ($endsAt !== '' && ($end === null || $end < $start)) {
+            throw new \RuntimeException('La fecha de finalización debe ser válida y posterior al inicio.');
+        }
+        $startsAt = $start->format('Y-m-d H:i:s');
+        $endsAt = $end?->format('Y-m-d H:i:s') ?? '';
         return [
             'id' => (int) ($payload['id'] ?? 0),
             'title' => trim((string) $payload['title']),
             'description' => trim((string) ($payload['description'] ?? '')),
-            'starts_at' => (string) ($payload['starts_at'] ?? ''),
-            'ends_at' => (string) ($payload['ends_at'] ?? ''),
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
             'status' => in_array(($payload['status'] ?? 'draft'), ['draft', 'active', 'closed'], true) ? $payload['status'] : 'draft',
             'questions' => $questions,
         ];
+    }
+
+    private function parseTriviaDate(string $value, \DateTimeZone $timezone): ?\DateTimeImmutable
+    {
+        foreach (['!Y-m-d H:i', '!Y-m-d H:i:s'] as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value, $timezone);
+            if ($date && $date->format($format === '!Y-m-d H:i' ? 'Y-m-d H:i' : 'Y-m-d H:i:s') === $value) {
+                return $date;
+            }
+        }
+        return null;
     }
 }

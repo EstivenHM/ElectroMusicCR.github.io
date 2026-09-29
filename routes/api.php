@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controller\RankingController;
 use App\Controller\TriviaController;
 use App\Controller\AdminController;
+use App\Controller\RatingController;
 use App\Support\Response;
 
 return static function (?RankingController $rankingController = null, ?TriviaController $triviaController = null, ?AdminController $adminController = null): void {
@@ -43,6 +44,14 @@ return static function (?RankingController $rankingController = null, ?TriviaCon
         $adminController->saveTrivia();
     }
 
+    if ($adminController !== null && preg_match('#^/api/admin/trivia/(\d+)$#', $path, $matches) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        $adminController->trivia((int) $matches[1]);
+    }
+
+    if ($adminController !== null && $path === '/api/admin/trivia/metadata' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $adminController->updateTriviaMetadata();
+    }
+
     if ($adminController !== null && $path === '/api/admin/profile' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $adminController->updateProfile();
     }
@@ -65,6 +74,11 @@ return static function (?RankingController $rankingController = null, ?TriviaCon
 
     if ($path === '/api/trivia/submissions' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && $triviaController !== null) {
         $triviaController->submit();
+    }
+
+    // Calificaciones de la página (widget flotante)
+    if ($path === '/api/rating' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        (new RatingController())->store();
     }
 
     Response::json(['error' => 'Ruta no encontrada.'], 404);

@@ -8,9 +8,10 @@
     const content = document.querySelector('[data-admin-content]');
     const title = document.querySelector('[data-admin-title]');
     const status = document.querySelector('[data-admin-status]');
-    let dashboard = { news: [], events: [], trivia: null };
+    let dashboard = { news: [], events: [], trivia: null, trivias: [] };
     let editingNews = null;
     let editingEvent = null;
+    let editingTrivia = null;
 
     function lockAdmin() {
         shellElement?.remove();
@@ -35,6 +36,7 @@
         try {
             payload = JSON.parse(responseText);
         } catch {
+            console.error('Invalid JSON response from', url, ':', responseText);
             throw new Error('El servidor devolvió una respuesta inválida. Revisa la configuración de la aplicación.');
         }
         if (!response.ok) throw new Error(payload.error || 'No fue posible completar la solicitud.');
@@ -56,7 +58,7 @@
         shell('Resumen', `<div class="admin-stats">
             <article><strong>${dashboard.news.length}</strong><span>Novedades</span></article>
             <article><strong>${dashboard.events.length}</strong><span>Eventos</span></article>
-            <article><strong>${dashboard.trivia ? '1' : '0'}</strong><span>Trivia configurada</span></article>
+            <article><strong>${dashboard.trivias.length}</strong><span>Trivias registradas</span></article>
         </div><div class="admin-panel"><h2>Contenido reciente</h2><p>Selecciona una sección para crear o actualizar contenido del sitio.</p>${(dashboard.warnings || []).map((warning) => `<p class="form-message form-message--error">${escapeHtml(warning)}</p>`).join('')}</div>`);
     }
 
@@ -104,21 +106,34 @@
         </article>`).join('') || '<p>No hay eventos todavía.</p>'}</div></div>`);
     }
 
-    function questionTemplate(question = {}) {
+    function questionTemplate(question = {}, index = 1) {
         const options = [...(question.options || []), {}, {}, {}, {}].slice(0, 4);
         const optionGroup = `correct_${question.id || Math.random().toString(36).slice(2)}`;
-        return `<fieldset class="trivia-question"><legend>Pregunta</legend><label>Texto<input name="question_text" value="${escapeHtml(question.text)}" required></label><label>Razón de la respuesta<textarea name="question_explanation" rows="3" maxlength="2000" placeholder="Explica brevemente por qué esta es la respuesta correcta">${escapeHtml(question.explanation)}</textarea></label><label>Puntos<input name="question_points" type="number" min="1" value="${question.points || 1}" required></label><div class="trivia-options">${options.map((option) => `<label>Opción<input name="option_text" value="${escapeHtml(option.text)}" required><span><input name="${optionGroup}" data-option-correct type="radio"> Correcta</span></label>`).join('')}</div><button type="button" class="button button--ghost" data-remove-question>Eliminar pregunta</button></fieldset>`;
+        return `<fieldset class="trivia-question"><legend>Pregunta ${index}</legend><label>Texto<input name="question_text" value="${escapeHtml(question.text)}" required></label><label>Dato curioso / Razón de la respuesta<textarea name="question_explanation" rows="3" maxlength="2000" placeholder="Explica el dato curioso o la razón de esta respuesta">${escapeHtml(question.explanation)}</textarea></label><input type="hidden" name="question_points" value="1"><div class="trivia-options">${options.map((option) => `<label>Opción<input name="option_text" value="${escapeHtml(option.text)}" required><span><input name="${optionGroup}" data-option-correct type="radio" ${option.correct ? 'checked' : ''}> Correcta</span></label>`).join('')}</div><button type="button" class="button button--ghost" data-remove-question>Eliminar pregunta</button></fieldset>`;
     }
 
     function renderTrivia() {
-        const trivia = dashboard.trivia || {};
-        shell('Trivia', `<form data-form="trivia" class="admin-form" enctype="multipart/form-data"><input type="hidden" name="id" value="${trivia.id || ''}">
-            <fieldset class="admin-panel"><legend>Configuración general</legend><label>Título<input name="title" value="${escapeHtml(trivia.title)}" ${trivia.title ? 'readonly' : ''} required></label>
-            <label>Descripción<textarea name="description" rows="4" ${trivia.description ? 'readonly' : ''}>${escapeHtml(trivia.description)}</textarea></label>
-            <label>Imagen<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label></fieldset>
+        const trivia = editingTrivia || {};
+        const isEditing = editingTrivia !== null;
+        const settings = dashboard.triviaSettings || {};
+        const hasSettings = Boolean(settings.title);
+        const metadataDisabled = hasSettings ? 'disabled' : '';
+        const metadata = `<form data-form="trivia-metadata" class="admin-form" enctype="multipart/form-data">
+            <fieldset class="admin-panel"><legend>Información de la trivia</legend><label>Título<input name="title" value="${escapeHtml(settings.title)}" ${metadataDisabled} required></label>
+            <label>Descripción<textarea name="description" rows="4" ${metadataDisabled}>${escapeHtml(settings.description)}</textarea></label>
+            <label>Imagen<input name="image" type="file" accept="image/jpeg,image/png,image/webp" ${metadataDisabled}></label></fieldset>
+            ${hasSettings ? '<button type="button" class="button button--ghost" data-edit-trivia-metadata>Editar información</button>' : ''}
+            <button type="submit" class="button button--primary" data-save-trivia-metadata ${hasSettings ? 'hidden' : ''}>Guardar información</button>
+            <p class="form-message" data-trivia-metadata-message role="status"></p>
+        </form>`;
+        const questionsList = (trivia.questions && trivia.questions.length > 0) ? trivia.questions : [{}, {}, {}];
+        const form = `<form data-form="trivia" class="admin-form" enctype="multipart/form-data"><input type="hidden" name="id" value="${trivia.id || 0}">
+            <fieldset class="admin-panel"><legend>${isEditing ? 'Editar preguntas y programación' : 'Nueva trivia (3 preguntas por día)'}</legend>
             <div class="admin-form--grid"><label>Inicio<input name="starts_at" type="datetime-local" value="${escapeHtml(trivia.starts_at).replace(' ', 'T')}" required></label><label>Fin<input name="ends_at" type="datetime-local" value="${escapeHtml(trivia.ends_at).replace(' ', 'T')}"></label><label>Estado<select name="status"><option value="draft">Borrador</option><option value="active">Activa</option><option value="closed">Cerrada</option></select></label></div>
-            <div data-questions>${(trivia.questions || []).map(questionTemplate).join('') || questionTemplate()}</div><button type="button" class="button button--ghost" data-add-question>Agregar pregunta</button><button class="button button--primary" type="submit">Guardar trivia</button><p class="form-message" data-trivia-form-message role="status"></p>
-        </form>`);
+            <div data-questions>${questionsList.map((q, i) => questionTemplate(q, i + 1)).join('')}</div><button type="button" class="button button--ghost" data-add-question>Agregar pregunta</button>${isEditing ? '<button type="button" class="button button--ghost" data-cancel-trivia>Cancelar</button>' : ''}<button class="button button--primary" type="submit">${isEditing ? 'Actualizar preguntas' : 'Crear trivia'}</button><p class="form-message" data-trivia-form-message role="status"></p>
+        </fieldset></form>`;
+        const list = `<div class="admin-panel"><div class="admin-panel__heading"><h2>Trivias registradas</h2><button type="button" class="button button--primary" data-new-trivia>Nueva trivia</button></div><div class="admin-list">${dashboard.trivias.map((item) => `<article><div class="admin-list__info"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.scheduled_date)} · ${escapeHtml(item.status)} · ${item.is_future ? 'Futura' : 'En curso / Pasada'} · ${item.question_count} preguntas · ${item.submission_count} participaciones</span></div><div class="admin-list__actions">${item.can_edit ? `<button type="button" class="button button--ghost" data-edit-trivia="${item.id}">Editar</button>` : `<span class="admin-help">${item.is_future ? 'Con participaciones' : 'Solo lectura (no futura)'}</span>`}</div></article>`).join('') || '<p>No hay trivias todavía.</p>'}</div></div>`;
+        shell('Trivia', `${metadata}${form}${list}`);
         const select = content.querySelector('[name="status"]');
         if (select && trivia.status) select.value = trivia.status;
     }
@@ -129,10 +144,14 @@
     }
 
     function readTriviaForm(form) {
+        const questions = [...form.querySelectorAll('.trivia-question')].map((question) => ({ text: question.querySelector('[name="question_text"]').value.trim(), explanation: question.querySelector('[name="question_explanation"]').value.trim(), points: 1, options: [...question.querySelectorAll('[name="option_text"]')].map((input, index) => ({ text: input.value.trim(), correct: question.querySelectorAll('[data-option-correct]')[index].checked })) }));
+        if (questions.length !== 3) {
+            throw new Error('La trivia debe contener exactamente 3 preguntas.');
+        }
         return {
-            id: Number(form.id.value || 0), title: form.title.value.trim(), description: form.description.value.trim(),
+            id: Number(form.id.value || 0),
             starts_at: form.starts_at.value.replace('T', ' '), ends_at: form.ends_at.value.replace('T', ' '), status: form.status.value,
-            questions: [...form.querySelectorAll('.trivia-question')].map((question) => ({ text: question.querySelector('[name="question_text"]').value.trim(), explanation: question.querySelector('[name="question_explanation"]').value.trim(), points: Number(question.querySelector('[name="question_points"]').value), options: [...question.querySelectorAll('[name="option_text"]')].map((input, index) => ({ text: input.value.trim(), correct: question.querySelectorAll('[data-option-correct]')[index].checked })) }))
+            questions
         };
     }
 
@@ -159,10 +178,37 @@
             document.querySelectorAll('[data-admin-panel]').forEach((item) => item.classList.toggle('is-active', item === panel));
             editingNews = null;
             editingEvent = null;
+            editingTrivia = null;
             ({ home: renderHome, news: renderNews, events: renderEvents, trivia: renderTrivia, profile: renderProfile }[panel.dataset.adminPanel])();
         }
         if (event.target.closest('[data-add-question]')) content.querySelector('[data-questions]').insertAdjacentHTML('beforeend', questionTemplate());
         if (event.target.closest('[data-remove-question]')) event.target.closest('.trivia-question').remove();
+
+        if (event.target.closest('[data-new-trivia]')) {
+            editingTrivia = null;
+            renderTrivia();
+        }
+
+        const editTriviaBtn = event.target.closest('[data-edit-trivia]');
+        if (editTriviaBtn) {
+            const id = parseInt(editTriviaBtn.dataset.editTrivia, 10);
+            editingTrivia = dashboard.trivias.find((item) => Number(item.id) === id) || null;
+            if (editingTrivia) {
+                if (editingTrivia.can_edit === false) {
+                    setStatus('Solo se pueden modificar trivias futuras que aún no han entrado en período.', true);
+                    return;
+                }
+                request(`/api/admin/trivia/${id}`).then((trivia) => {
+                    editingTrivia = trivia;
+                    renderTrivia();
+                }).catch((error) => setStatus(error.message, true));
+            }
+        }
+
+        if (event.target.closest('[data-cancel-trivia]')) {
+            editingTrivia = null;
+            renderTrivia();
+        }
 
         const editNewsBtn = event.target.closest('[data-edit-news]');
         if (editNewsBtn) {
@@ -219,6 +265,14 @@
                 renderNews();
             }
         }
+
+        const editTriviaMetadataBtn = event.target.closest('[data-edit-trivia-metadata]');
+        if (editTriviaMetadataBtn) {
+            const metadataForm = editTriviaMetadataBtn.closest('[data-form="trivia-metadata"]');
+            metadataForm.querySelectorAll('input:not([type="hidden"]), textarea').forEach((field) => { field.disabled = false; });
+            editTriviaMetadataBtn.hidden = true;
+            metadataForm.querySelector('[data-save-trivia-metadata]').hidden = false;
+        }
     });
 
     app.addEventListener('submit', async (event) => {
@@ -242,8 +296,19 @@
             if (form.dataset.form === 'trivia') {
                 const trivia = readTriviaForm(form);
                 const body = new FormData(form);
+                const metadataForm = content.querySelector('[data-form="trivia-metadata"]');
+                if (trivia.id === 0) {
+                    body.set('title', metadataForm.title.value.trim());
+                    body.set('description', metadataForm.description.value.trim());
+                }
                 body.set('questions', JSON.stringify(trivia.questions));
+                body.set('starts_at', form.starts_at.value.replace('T', ' '));
+                body.set('ends_at', form.ends_at.value ? form.ends_at.value.replace('T', ' ') : '');
                 result = await request('/api/admin/trivia', { method: 'POST', body });
+                editingTrivia = null;
+            }
+            if (form.dataset.form === 'trivia-metadata') {
+                result = await request('/api/admin/trivia/metadata', { method: 'POST', body: new FormData(form) });
             }
             if (form.dataset.form === 'profile') result = await request('/api/admin/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
             setStatus('Cambios guardados correctamente.');
@@ -251,12 +316,24 @@
             if (form.dataset.form === 'news') renderNews();
             if (form.dataset.form === 'event') renderEvents();
             if (form.dataset.form === 'trivia') renderTrivia();
+            if (form.dataset.form === 'trivia-metadata') {
+                dashboard = await request('/api/admin/dashboard');
+                dashboard.user = dashboard.user || {};
+                renderTrivia();
+            }
             if (form.dataset.form === 'profile') renderProfile();
             if (form.dataset.form === 'trivia') content.querySelector('[data-trivia-form-message]').textContent = 'Trivia guardada correctamente.';
         } catch (error) {
             setStatus(error.message, true);
             if (form.dataset.form === 'trivia') {
                 const message = form.querySelector('[data-trivia-form-message]');
+                if (message) {
+                    message.textContent = error.message;
+                    message.classList.add('form-message--error');
+                }
+            }
+            if (form.dataset.form === 'trivia-metadata') {
+                const message = form.querySelector('[data-trivia-metadata-message]');
                 if (message) {
                     message.textContent = error.message;
                     message.classList.add('form-message--error');
